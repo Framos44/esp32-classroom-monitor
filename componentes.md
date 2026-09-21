@@ -2,15 +2,20 @@
 
 Lista de hardware utilizado no protótipo, simulado no Wokwi (`diagram.json`).
 
-| Componente | Modelo/tipo | Função | Pino(s) no ESP32 |
-|---|---|---|---|
-| Microcontrolador | ESP32 DevKit C V4 | Leitura dos sensores, exibição no LCD e envio dos dados via WiFi | — |
-| Sensor de temperatura e umidade | DHT22 | Mede temperatura e umidade do ambiente | GPIO 4 (SDA) |
-| Resistor de pull-up | 1kΩ | Liga a linha DATA do DHT22 ao VCC | — |
-| Sensor de luminosidade | LDR (fotorresistor) | Mede o nível de luz do ambiente | GPIO 34 (AO) |
-| Sensor de gás | MQ2 | Mede qualidade do ar (substitui o MQ135, indisponível no Wokwi; interface elétrica idêntica) | GPIO 35 (AOUT) |
-| Potenciômetro | Potenciômetro linear | Simula o nível de ruído (não há sensor de microfone disponível no Wokwi) | GPIO 32 (SIG) |
-| Display | LCD 16x2 com interface I2C (endereço 0x27) | Exibe os dados em tempo real | GPIO 21 (SDA) / GPIO 22 (SCL) |
+## Componentes utilizados
+
+| Qtd | Componente | Observação |
+|-----|------------|------------|
+| 1 | ESP32 | Microcontrolador |
+| 1 | Half Breadboard | Protoboard |
+| 1 | Buzzer | Alerta sonoro |
+| 1 | DHT22 | Sensor de temperatura e umidade |
+| 1 | MQ2 | Sensor de qualidade do ar (substitui o MQ135, indisponível no Wokwi) |
+| 1 | LDR | Sensor de luminosidade |
+| 1 | Potenciômetro | Simula nível de som (substitui o microfone KY-038, indisponível no Wokwi) |
+| 5 | NeoPixel LED Ring | Alerta visual (RGB endereçável) |
+| 1 | LCD 20x4 I2C | Display de dados |
+| 1 | Resistor | Pull-up para o pino de dados do DHT22 |
 
 ## Observações
 
