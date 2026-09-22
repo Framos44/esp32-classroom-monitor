@@ -44,6 +44,7 @@ Concluído:
 * Conexão WiFi
 * Envio de dados via HTTP POST para o backend
 * Dashboard web (PHP + MySQL)
+* Alerta sonoro e visual
 
 Em andamento:
 
