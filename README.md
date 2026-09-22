@@ -26,14 +26,6 @@ Nota: o resistor de pull-up do DHT22 deve ligar a linha DATA ao VCC. Ligar as du
 Sensores → ESP32 → Display LCD local
 ESP32 → HTTP POST (WiFi) → Backend PHP + MySQL (hospedado via Plesk) → Dashboard web
 
-## Classificação de qualidade do ar
-
-Limites calibrados empiricamente com o simulador MQ2 do Wokwi:
-
-* Abaixo de 3132: bom
-* De 3132 a 3665: moderado
-* Acima de 3665: ruim
-
 ## Como rodar
 
 1. Abra o projeto no Wokwi.
@@ -52,6 +44,7 @@ Concluído:
 * Conexão WiFi
 * Envio de dados via HTTP POST para o backend
 * Dashboard web (PHP + MySQL)
+* Alerta sonoro e visual
 
 Em andamento:
 
