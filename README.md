@@ -27,11 +27,13 @@ Sensores → ESP32 → Display LCD local
 ESP32 → HTTP POST (WiFi) → Backend PHP + MySQL (hospedado via Plesk) → Dashboard web
 
 ## Como rodar
+A simulação é executada localmente via VS Code, usando os plugins PlatformIO e Wokwi Simulator. Isso evita o alto load no servidor do Wokwi e permite testar sem interrupções.
 
-1. Abra o projeto no Wokwi.
-2. Dependências (listadas em `libraries.txt`): `LiquidCrystal I2C`, `WiFi.h` (nativa do ESP32), biblioteca DHT.
-3. Inicie a simulação.
-4. Acompanhe a conexão WiFi e os dados enviados pelo Serial Monitor.
+1. Instale o VS Code com os plugins PlatformIO e Wokwi Simulator.
+2. Abra o projeto na pasta local.
+3. Dependências (listadas em `libraries.txt`): `LiquidCrystal I2C`, `WiFi.h` (nativa do ESP32), biblioteca DHT.
+4. Inicie a simulação pelo Wokwi Simulator dentro do VS Code.
+5. Acompanhe a conexão WiFi e os dados enviados pelo Serial Monitor.
 
 A migração para hardware físico ainda está planejada como próxima etapa.
 
