@@ -15,9 +15,12 @@ Protótipo desenvolvido e testado no [Wokwi](https://wokwi.com/).
 | 1 | MQ2 | Sensor de qualidade do ar (substitui o MQ135, indisponível no Wokwi) |
 | 1 | LDR | Sensor de luminosidade |
 | 1 | Potenciômetro | Simula nível de som (substitui o microfone KY-038, indisponível no Wokwi) |
-| 5 | NeoPixel LED Ring | Alerta visual (RGB endereçável) |
+| 1 | LED verde | Alerta visual — nível normal |
+| 1 | LED amarelo | Alerta visual — nível de atenção |
+| 1 | LED vermelho | Alerta visual — nível crítico |
 | 1 | LCD 20x4 I2C | Display de dados |
 | 1 | Resistor | Pull-up para o pino de dados do DHT22 |
+| 3 | Resistor | Limitador de corrente para os LEDs (verde, amarelo, vermelho) |
 
 Nota: o resistor de pull-up do DHT22 deve ligar a linha DATA ao VCC. Ligar as duas pernas do resistor na linha DATA causa erros de leitura.
 
