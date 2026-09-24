@@ -1,11 +1,12 @@
 // Bibliotecas necessarias
+#include <Arduino.h>
+// Bibliotecas necessarias
 #include <DHT.h>              // Biblioteca do sensor de temperatura/umidade DHT22
 #include <Wire.h>             // Biblioteca de comunicação I2C (usada pelo LCD)
 #include <LiquidCrystal_I2C.h> // Biblioteca do display LCD via I2C
 #include <WiFi.h>             // Conexão Wi-Fi do ESP32
 #include <WiFiClientSecure.h> // Cliente Wi-Fi com suporte a HTTPS
 #include <HTTPClient.h>       // Envio de requisições HTTP (POST pro servidor)
-#include <Adafruit_NeoPixel.h> // Biblioteca dos anéis de LED endereçável (NeoPixel)
 
 // Acesso ao Wi-Fi do Wokwi
 const char* ssid = "Wokwi-GUEST";
@@ -20,16 +21,15 @@ const char* serverURL = "https://microcontrolador.papaixinho.com.br/api/dados.ph
 #define SOMPIN 32       // Pino analógico do potenciômetro (simula sensor de som)
 #define BUZZERPIN 25    // Pino digital do buzzer passivo (alarme sonoro)
 #define frequencia 2000 // Frequência (Hz) do som emitido pelo buzzer
+#define LEDGPIN 12      // Pino digitais do LED Verde
+#define LEDYPIN 13      // Pino digitais do LED Amarelo
+#define LEDRPIN 14      // Pino digitais do LED Vermelho
 
 // Objetos globais dos componentes
 DHT dht(DHTPIN, DHTTYPE);            // Sensor DHT22
 LiquidCrystal_I2C lcd(0x27, 20, 4);  // LCD 20x4 no endereço I2C 0x27
-// Cada anel de NeoPixel tem 16 LEDs; um anel por sensor, cada um em seu próprio pino
-Adafruit_NeoPixel anelTemperatura(16, 33, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel anelUmidade(16, 27, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel anelLuminosidade(16, 14, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel anelQualidadedoar(16, 13, NEO_GRB + NEO_KHZ800);
-Adafruit_NeoPixel anelSom(16, 12, NEO_GRB + NEO_KHZ800);
+
+int contadorExtremo = 0; // contator de leituras extremas seguidas
 
 // Inicialização do prototipo
 void setup() {
@@ -45,12 +45,10 @@ void setup() {
   WiFi.begin(ssid, password); // Inicia a conexão Wi-Fi
   Serial.print("Conectando ao WiFi");
 
-  // Inicializa cada anel de NeoPixel (necessário antes de usar setPixelColor/show)
-  anelTemperatura.begin();
-  anelUmidade.begin();
-  anelLuminosidade.begin();
-  anelQualidadedoar.begin();
-  anelSom.begin();
+  // Inicializa os LEDs
+  pinMode(LEDGPIN, OUTPUT);
+  pinMode(LEDYPIN, OUTPUT);
+  pinMode(LEDRPIN, OUTPUT);
 
   // Aguarda a conexão Wi-Fi ser estabelecida antes de seguir
   while (WiFi.status() != WL_CONNECTED) {
@@ -76,9 +74,9 @@ void loop() {
     tempTexto = "Temperatura Negativa";
   } else if (temperatura <= 15) {
     tempTexto = "Temperatura frio";
-  } else if (temperatura <= 22) {
+  } else if (temperatura <= 26) {
     tempTexto = "Temperatura amena";
-  } else if (temperatura <= 30) {
+  } else if (temperatura <= 32) {
     tempTexto = "Temperatura Alta";
   } else if (temperatura <= 45) {
     tempTexto = "Temperatura Muito Alta";
@@ -87,7 +85,6 @@ void loop() {
   }
 
   // --- Classificação da umidade em faixas de estado ---
-  // Faixas baseadas em referência de conforto/saúde humana (ideal: 40-70%)
   if (umidade <= 12) {
     umiTexto = "Emergência";
   } else if (umidade > 12 && umidade <= 20) {
@@ -138,87 +135,63 @@ void loop() {
     nivelSomTexto = "Alto";
   }
 
-  // --- Pintando os anéis de LED conforme o estado de cada sensor ---
-  int corR, corG, corB; // Variáveis reutilizadas pra montar a cor (R, G, B) de cada anel
+  // Definindo o nivel do LED
+  int nivelTemp = 0, nivelUmi = 0, nivelLumi = 0, nivelAr = 0, nivelS = 0;
 
-  // Anel da temperatura
   if (tempTexto == "Temperatura Extremo" || tempTexto == "Temperatura Negativa") {
-    corR = 255; corG = 0; corB = 0;     // Vermelho: extremos críticos
-  } else if (tempTexto == "Temperatura frio") {
-    corR = 0; corG = 255; corB = 100;   // Verde-azulado: frio, mas não crítico
-  } else if (tempTexto == "Temperatura amena") {
-    corR = 0; corG = 255; corB = 0;     // Verde puro: temperatura ideal
-  } else if (tempTexto == "Temperatura Alta") {
-    corR = 200; corG = 0; corB = 10;    // Vermelho intermediário: alta, mas não extrema
+    nivelTemp = 2;
+  } else if (tempTexto == "Temperatura Alta" || tempTexto == "Temperatura Muito Alta") {
+    nivelTemp = 1;
   } else {
-    corR = 200; corG = 0; corB = 0;     // Cobre "Muito Alta"
+    nivelTemp = 0;
   }
 
-  // Aplica a cor decidida em todos os 16 LEDs do anel e publica no hardware
-  for (int i = 0; i < 16; i++) {
-    anelTemperatura.setPixelColor(i, corR, corG, corB);
-  }
-  anelTemperatura.show();
-
-  // Anel da umidade
-  if (umiTexto == "Emergência") {
-    corR = 255; corG = 0; corB = 0;     // Vermelho: emergência
-  } else if (umiTexto == "Alerta") {
-    corR = 200; corG = 200; corB = 0;   // Amarelo: alerta
-  } else if (umiTexto == "Atenção") {
-    corR = 255; corG = 180; corB = 0;   // Amarelo-alaranjado: atenção
-  } else if (umiTexto == "Atenção II") {
-    corR = 255; corG = 100; corB = 10;  // Laranja: faixa intermediária (30-40%)
-  } else if (umiTexto == "Ideal") {
-    corR = 0; corG = 255; corB = 0;     // Verde: faixa ideal
+  if (umiTexto  == "Emergência" || umiTexto == "Umidade alta") {
+    nivelUmi = 2;
+  } else if (umiTexto == "Alerta" || umiTexto == "Atenção" || umiTexto == "Atenção II") {
+    nivelUmi = 1;
   } else {
-    corR = 200; corG = 0; corB = 0;     // Cobre "Umidade alta"
+    nivelUmi = 0;
   }
 
-  for (int i = 0; i < 16; i++) {
-    anelUmidade.setPixelColor(i, corR, corG, corB);
-  }
-  anelUmidade.show();
-
-  // Anel da luminosidade
-  if (luzTexto == "Muito claro" || luzTexto == "Escuro") {
-    corR = 255; corG = 0; corB = 0;     // Vermelho: extremos de luminosidade
+  if (luzTexto   == "Muito claro" || luzTexto  == "Escuro") {
+    nivelLumi = 2;
   } else {
-    corR = 0; corG = 255; corB = 0;     // Verde: luminosidade adequada
+    nivelLumi = 0;
   }
 
-  for (int i = 0; i < 16; i++) {
-    anelLuminosidade.setPixelColor(i, corR, corG, corB);
-  }
-  anelLuminosidade.show();
-
-  // Anel da qualidade do ar
-  if (qualidadeArTexto == "Extremo") {
-    corR = 255; corG = 0; corB = 0;     // Vermelho: ar extremo
-  } else if (qualidadeArTexto == "Bom") {
-    corR = 0; corG = 255; corB = 0;     // Verde: ar bom
+  if (qualidadeArTexto   == "Extremo") {
+    nivelAr = 2;
+  } else if (qualidadeArTexto  == "Ruim") {
+    nivelAr = 1;
   } else {
-    corR = 200; corG = 50; corB = 0;    // Laranja: cobre "Ruim"
+    nivelAr = 0;
   }
 
-  for (int i = 0; i < 16; i++) {
-    anelQualidadedoar.setPixelColor(i, corR, corG, corB);
-  }
-  anelQualidadedoar.show();
-
-  // Anel do som
-  if (nivelSomTexto == "Alto") {
-    corR = 255; corG = 0; corB = 0;     // Vermelho: som alto
-  } else if (nivelSomTexto == "Moderado") {
-    corR = 150; corG = 255; corB = 0;   // Verde-amarelado: som moderado
+  if (nivelSomTexto    == "Alto") {
+    nivelS = 2;
+  } else if (nivelSomTexto   == "Moderado") {
+    nivelS = 1;
   } else {
-    corR = 0; corG = 255; corB = 0;     // Verde: cobre "Baixo" (melhor caso)
+    nivelS = 0;
   }
 
-  for (int i = 0; i < 16; i++) {
-    anelSom.setPixelColor(i, corR, corG, corB);
+  int maiorNivel = max(nivelTemp, max(nivelUmi, max(nivelLumi, max(nivelAr, nivelS))));
+
+  // Acendendo os LEDs
+  if (maiorNivel == 2){
+    digitalWrite(LEDRPIN, HIGH);
+    digitalWrite(LEDYPIN, LOW);
+    digitalWrite(LEDGPIN, LOW);
+  } else if (maiorNivel == 1){
+    digitalWrite(LEDRPIN, LOW);
+    digitalWrite(LEDYPIN, HIGH);
+    digitalWrite(LEDGPIN, LOW);
+  } else {
+    digitalWrite(LEDRPIN, LOW);
+    digitalWrite(LEDYPIN, LOW);
+    digitalWrite(LEDGPIN, HIGH);
   }
-  anelSom.show();
 
   // --- Verifica se algum sensor está em estado crítico (lógica OU) ---
   bool alertaAtivo = false;
@@ -228,8 +201,16 @@ void loop() {
                 (luzTexto == "Muito claro") || (luzTexto == "Escuro") ||
                 (qualidadeArTexto == "Extremo") || (nivelSomTexto == "Alto");
 
-  // Soa o alarme: reativo — liga enquanto houver condição crítica, desliga quando normaliza
+  // Contabilizador de quantas vezes algums dados ficou como "Extremo"
   if (alertaAtivo) {
+    contadorExtremo++;
+  } else {
+    contadorExtremo = 0;
+  }
+
+  // Soa o alarme: só liga após 3 leituras extremas seguidas (evita disparo por 1 leitura isolada/ruído);
+  // desliga automaticamente assim que uma leitura normaliza (contador zera)
+  if (contadorExtremo >= 3) {
     tone(BUZZERPIN, frequencia);
   } else {
     noTone(BUZZERPIN);
@@ -242,7 +223,7 @@ void loop() {
   Serial.print(temperatura);
   Serial.println("°C");
   Serial.print("Luminosidade: ");
-  Serial.println(luminosidade);
+  Serial.println(luzTexto);
   Serial.print("Qualidade do ar: ");
   Serial.println(qualidadeArTexto);
   Serial.print("Nivel do som: ");
