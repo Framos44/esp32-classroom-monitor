@@ -1,6 +1,4 @@
 // Bibliotecas necessarias
-#include <Arduino.h>
-// Bibliotecas necessarias
 #include <DHT.h>              // Biblioteca do sensor de temperatura/umidade DHT22
 #include <Wire.h>             // Biblioteca de comunicação I2C (usada pelo LCD)
 #include <LiquidCrystal_I2C.h> // Biblioteca do display LCD via I2C
@@ -74,7 +72,7 @@ void loop() {
     tempTexto = "Temperatura Negativa";
   } else if (temperatura <= 15) {
     tempTexto = "Temperatura frio";
-  } else if (temperatura <= 26) {
+  } else if (temperatura <= 26) {        
     tempTexto = "Temperatura amena";
   } else if (temperatura <= 32) {
     tempTexto = "Temperatura Alta";
@@ -205,7 +203,7 @@ void loop() {
   if (alertaAtivo) {
     contadorExtremo++;
   } else {
-    contadorExtremo = 0;
+    contadorExtremo = 0; 
   }
 
   // Soa o alarme: só liga após 3 leituras extremas seguidas (evita disparo por 1 leitura isolada/ruído);
@@ -222,7 +220,7 @@ void loop() {
   Serial.print("%  Temperatura: ");
   Serial.print(temperatura);
   Serial.println("°C");
-  Serial.print("Luminosidade: ");
+  Serial.print("Luz: ");
   Serial.println(luzTexto);
   Serial.print("Qualidade do ar: ");
   Serial.println(qualidadeArTexto);
@@ -232,23 +230,37 @@ void loop() {
   // --- Exibição no LCD ---
   lcd.clear();
   lcd.setCursor(0, 0);
-  lcd.print("T:");
+  lcd.print("T: ");
   lcd.print(temperatura);
   lcd.print("C U:");
   lcd.print(umidade);
   lcd.print("%");
 
   lcd.setCursor(0, 1);
-  lcd.print("Ar:");
+  lcd.print("Ar: ");
   lcd.print(qualidadeArTexto);
+  lcd.print(" Som: ");
+  lcd.print(nivelSomTexto);
 
   lcd.setCursor(0, 2);
-  lcd.print("Luminosidade:");
+  lcd.print("Luz: ");
   lcd.print(luzTexto);
 
+  String sensoresProblema = "";
+
+  if (maiorNivel > 0) {
+    if (nivelTemp == maiorNivel) sensoresProblema += "Temp";
+    if (nivelUmi == maiorNivel) sensoresProblema += "Umi";
+    if (nivelLumi == maiorNivel) sensoresProblema += "Luz";
+    if (nivelAr == maiorNivel) sensoresProblema += "Ar";
+    if (nivelS == maiorNivel) sensoresProblema += "Som";
+  } else {
+    sensoresProblema += ":)";
+  }
+
   lcd.setCursor(0, 3);
-  lcd.print("Som:");
-  lcd.print(nivelSomTexto);
+  lcd.print("STATUS: ");
+  lcd.print(sensoresProblema);
 
   // --- Montagem do JSON com os dados brutos dos sensores ---
   String jsonData = "{";
