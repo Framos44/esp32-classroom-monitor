@@ -49,8 +49,11 @@ void setup() {
   pinMode(LEDRPIN, OUTPUT);
 
   // Aguarda a conexão Wi-Fi ser estabelecida antes de seguir
-  while (WiFi.status() != WL_CONNECTED) {
+  // Se não conseguir conectar em até 10 tentativas o sistema seguira sem conexão
+  int tentativas = 0;
+  while (WiFi.status() != WL_CONNECTED && tentativas < 10) {
     delay(500);
+    tentativas++;
   }
 }
 
@@ -174,6 +177,10 @@ void loop() {
     nivelS = 0;
   }
 
+  // O LED indica o pior caso entre todos os sensores, não um sensor específico.
+  // Cada grandeza recebe um nível (0=normal, 1=atenção, 2=crítico) e o maior
+  // valor entre eles decide a cor exibida, garantindo que o alerta visual
+  // sempre reflita a condição ambiental mais grave no momento.
   int maiorNivel = max(nivelTemp, max(nivelUmi, max(nivelLumi, max(nivelAr, nivelS))));
 
   // Acendendo os LEDs
@@ -191,7 +198,10 @@ void loop() {
     digitalWrite(LEDGPIN, HIGH);
   }
 
-  // --- Verifica se algum sensor está em estado crítico (lógica OU) ---
+  // Lógica independente da usada para os LEDs: aqui basta QUALQUER sensor
+  // estar em estado crítico (OU lógico) para ativar o alerta sonoro, sem
+  // diferenciar qual grandeza ultrapassou o limite. O LED informa "o quê" e
+  // "quão grave"; o buzzer só informa "algo está crítico".
   bool alertaAtivo = false;
 
   alertaAtivo = (tempTexto == "Temperatura Extremo") || (tempTexto == "Temperatura Negativa") ||
@@ -246,6 +256,9 @@ void loop() {
   lcd.print("Luz: ");
   lcd.print(luzTexto);
 
+  // Identifica quais sensores estão no nível mais crítico (maiorNivel) para
+  // exibir no display qual(is) grandeza(s) motivou(aram) o alerta atual.
+  // Mais de um sensor pode aparecer simultaneamente se estiverem no mesmo nível.
   String sensoresProblema = "";
 
   if (maiorNivel > 0) {
