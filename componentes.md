@@ -17,7 +17,6 @@ Lista de hardware utilizado no protótipo, simulado no Wokwi (`diagram.json`).
 | 1 | LED amarelo | Alerta visual — nível de atenção |
 | 1 | LED vermelho | Alerta visual — nível crítico |
 | 1 | LCD 20x4 I2C | Display de dados |
-| 1 | Resistor | Pull-up para o pino de dados do DHT22 |
 | 3 | Resistor | Limitador de corrente para os LEDs (verde, amarelo, vermelho) |
 
 ## Observações
