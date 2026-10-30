@@ -1,0 +1,873 @@
+<title>Monitor SIMAEP 3D</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;600;700&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<style>
+/* Layout: palco 3D à esquerda, painel de controles à direita; empilha em telas estreitas. */
+:root {
+  --bg: #e8ecef;
+  --panel: #f6f8f9;
+  --fg: #1c242a;
+  --muted: #5b6770;
+  --line: #cdd5da;
+  --accent: #0e7c86;
+  --accent-fg: #ffffff;
+  --ok: #2e9e55;
+  --warn: #d49a00;
+  --crit: #d23b32;
+  --font-body: "IBM Plex Sans", "Segoe UI", system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "Cascadia Mono", Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #12181c; --panel: #1a2227; --fg: #e5ebee; --muted: #93a1aa; --line: #2d3940;
+    --accent: #3fc1cb; --accent-fg: #07262a; color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #12181c; --panel: #1a2227; --fg: #e5ebee; --muted: #93a1aa; --line: #2d3940;
+  --accent: #3fc1cb; --accent-fg: #07262a; color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--bg); color: var(--fg); font-family: var(--font-body); font-size: 15px; line-height: 1.5;
+  padding-block: 20px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.wrap { max-width: 1180px; margin: 0 auto; display: grid; gap: 16px; }
+header h1 { font-size: 1.6rem; line-height: 1.2; margin: 0 0 4px; text-wrap: balance; letter-spacing: -0.01em; }
+header p { margin: 0; color: var(--muted); max-width: 62ch; }
+.main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
+.stage { position: relative; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); overflow: hidden; height: clamp(380px, 68vh, 720px); }
+.stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.hint { position: absolute; left: 12px; bottom: 10px; font: 12px var(--font-mono); color: var(--muted); pointer-events: none; }
+aside { border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 16px; display: grid; gap: 18px; min-width: 0; }
+h2 { font: 600 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; }
+.row { display: flex; flex-wrap: wrap; gap: 8px; }
+button {
+  font: 500 14px var(--font-body); color: var(--fg); background: transparent; border: 1px solid var(--line);
+  border-radius: 4px; padding: 8px 12px; cursor: pointer; min-height: 40px;
+}
+button:hover { border-color: var(--accent); }
+button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+button[aria-pressed="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); }
+.readout { font: 13px var(--font-mono); display: grid; gap: 4px; }
+.readout div { display: flex; justify-content: space-between; gap: 8px; border-bottom: 1px dashed var(--line); padding-bottom: 3px; }
+.readout span:last-child { text-align: right; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 50%; margin-right: 6px; vertical-align: -1px; }
+ul.parts { margin: 0; padding-left: 18px; color: var(--muted); font-size: 13px; }
+ul.parts li { margin-bottom: 2px; }
+.note { font-size: 12.5px; color: var(--muted); margin: 0; }
+.grandeza { display: grid; gap: 4px; }
+.grandeza + .grandeza { margin-top: 12px; }
+.g-topo { display: flex; justify-content: space-between; gap: 8px; font: 13px var(--font-mono); }
+.g-campo { display: flex; align-items: center; gap: 8px; }
+.g-campo input { flex: 1; min-width: 0; font: 13px var(--font-mono); color: var(--fg); background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 8px 10px; min-height: 40px; }
+.g-campo input:focus-visible, .grandeza input[type="range"]:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.g-campo .un { font: 13px var(--font-mono); color: var(--muted); min-width: 3ch; }
+.grandeza input[type="range"] { width: 100%; accent-color: var(--accent); }
+.g-msg { font-size: 12.5px; color: var(--crit); margin: 0; }
+.g-msg:empty { display: none; }
+/* Responsivo: tablet empilha e divide o painel em colunas; celular reduz espaços; toque ganha alvos maiores. */
+@media (max-width: 860px) {
+  .main { grid-template-columns: minmax(0, 1fr); }
+  .stage { height: clamp(320px, 56vh, 520px); height: clamp(320px, 56svh, 520px); }
+  aside { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
+}
+@media (max-width: 560px) {
+  body { padding-block: 12px; font-size: 14px; }
+  .wrap, .main { gap: 12px; }
+  header h1 { font-size: 1.3rem; }
+  .stage { height: clamp(300px, 50vh, 460px); height: clamp(300px, 50svh, 460px); }
+  .hint { right: 12px; font-size: 11px; }
+  aside { padding: 12px; gap: 14px; }
+}
+@media (pointer: coarse) {
+  button { min-height: 44px; }
+  .g-campo input { min-height: 44px; font-size: 16px; }
+  .grandeza input[type="range"] { height: 32px; }
+}
+@media (max-height: 520px) and (orientation: landscape) { .stage { height: clamp(260px, 84vh, 720px); } }
+@media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <h1>Monitor SIMAEP</h1>
+    <p>Proposta de protótipo com acabamento: caixa de parede de 24 × 16 × 6,5 cm que abriga o ESP32, os sensores, o display, os LEDs e os três botões do firmware. Arraste para girar e clique nos botões da caixa para testar.</p>
+  </header>
+
+  <div class="main">
+    <div class="stage" id="stage">
+      <canvas id="cv" aria-label="Modelo 3D do monitor ambiental"></canvas>
+      <div class="hint">arraste: girar · roda/pinça: zoom · clique nos botões da caixa</div>
+    </div>
+
+    <aside>
+      <section>
+        <h2>Vista</h2>
+        <div class="row">
+          <button id="btnAbrir" aria-pressed="false">Abrir tampa</button>
+          <button id="btnSala" aria-pressed="false">Sala de aula</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Grandezas simuladas</h2>
+        <div id="grandezas"></div>
+      </section>
+
+      <section>
+        <h2>Botões da caixa</h2>
+        <div class="row">
+          <button id="bPower" aria-pressed="true">POWER</button>
+          <button id="bModo">MODO</button>
+          <button id="bMute" aria-pressed="false">MUTE</button>
+        </div>
+      </section>
+
+      <section>
+        <h2>Resposta do firmware</h2>
+        <div class="readout" id="readout"></div>
+      </section>
+
+      <section>
+        <h2>Peças na caixa</h2>
+        <ul class="parts">
+          <li>Frente: LCD 20×4, 3 LEDs, grade do buzzer, 3 botões</li>
+          <li>Topo: janela do LDR e aberturas de ar para o MQ2</li>
+          <li>Lateral direita: aberturas do DHT22</li>
+          <li>Lateral esquerda: microfone e entrada USB-C</li>
+          <li>Interior: ESP32, DHT22, MQ2, LDR e módulo de som</li>
+        </ul>
+        <p class="note">Sugestão de acabamento: impressão 3D em PLA branco fosco, tampa com dobradiça e furos na traseira para fixar na parede. Medidas e posições são uma proposta, ajuste conforme os módulos reais.</p>
+      </section>
+    </aside>
+  </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script>
+(function () {
+  // ---------------------------------------------------------------
+  // Estado que espelha o firmware (sketch.ino)
+  // ---------------------------------------------------------------
+  var NOMES = ["GERAL", "TERMICO", "SENSORIAL", "AR"];
+  var SIGLAS = ["GER", "TER", "SEN", "AR "];
+  // colunas: temp, umidade, luz, ar, som
+  var FOCO = [
+    [1, 1, 1, 1, 1],
+    [1, 1, 0, 0, 0],
+    [0, 0, 1, 0, 1],
+    [0, 0, 0, 1, 0]
+  ];
+  // Grandezas digitáveis: faixa, passo, unidade e valor inicial (ini)
+  var GRANDEZAS = [
+    { id: "t",   nome: "Temperatura",  un: "°C",  min: -10, max: 60,   passo: 0.5, ini: 24 },
+    { id: "u",   nome: "Umidade",      un: "%",   min: 0,   max: 100,  passo: 0.5, ini: 58 },
+    { id: "luz", nome: "Luminosidade", un: "%",   min: 0,   max: 100,  passo: 1,   ini: 55 },
+    { id: "ar",  nome: "Gases (ar)",   un: "ppm", min: 0,   max: 1000, passo: 10,  ini: 150 },
+    { id: "som", nome: "Ruído",        un: "dB",  min: 30,  max: 110,  passo: 1,   ini: 45 }
+  ];
+  // Limites que convertem luz, ar e som em categorias (suposição: ajuste ao firmware)
+  var FAIXAS = { luzEscuro: 30, luzClaro: 80, arRuim: 300, arExtremo: 600, somModerado: 60, somAlto: 75 };
+  // LEDs 3D: cor base e intensidade emissiva (apagado / aceso), na ordem verde, amarelo, vermelho
+  var LEDS = [
+    { cor: "#2e9e55", apagado: 0.05, aceso: 1.0 },
+    { cor: "#e0aa00", apagado: 0.05, aceso: 1.0 },
+    { cor: "#d23b32", apagado: 0.05, aceso: 1.0 }
+  ];
+  // Sala de aula (cm): meia largura, parede da frente (atrás do aparelho), parede do fundo, piso e teto
+  var SALA = { meiaLargura: 350, zFrente: -3.3, zFundo: 796.7, chao: -150, teto: 150, xAparelho: -270 };
+  var S = { ligado: true, modo: 0, mudo: false, v: {} };
+
+  function categorias() {
+    var v = S.v;
+    return {
+      t: v.t, u: v.u,
+      luz: v.luz < FAIXAS.luzEscuro ? "Escuro" : v.luz > FAIXAS.luzClaro ? "Claro" : "Adequado",
+      ar: v.ar >= FAIXAS.arExtremo ? "Extremo" : v.ar >= FAIXAS.arRuim ? "Ruim" : "Bom",
+      som: v.som >= FAIXAS.somAlto ? "Alto" : v.som >= FAIXAS.somModerado ? "Moderado" : "Baixo"
+    };
+  }
+
+  function niveis(c) {
+    var t = c.t <= 0 ? 2 : c.t <= 26 ? 0 : c.t <= 45 ? 1 : 2;
+    var u = (c.u <= 12 || c.u >= 70.0001) ? 2 : (c.u < 40) ? 1 : 0;
+    var l = c.luz === "Adequado" ? 0 : 2;
+    var a = c.ar === "Extremo" ? 2 : c.ar === "Ruim" ? 1 : 0;
+    var s = c.som === "Alto" ? 2 : c.som === "Moderado" ? 1 : 0;
+    var arr = [t, u, l, a, s];
+    for (var i = 0; i < 5; i++) if (!FOCO[S.modo][i]) arr[i] = 0;
+    return arr;
+  }
+  function resultado() {
+    var c = categorias(), n = niveis(c), mx = Math.max.apply(null, n);
+    var nomes = ["Temp", "Umi", "Luz", "Ar", "Som"], st = "";
+    if (mx > 0) { for (var i = 0; i < 5; i++) if (n[i] === mx) st += nomes[i]; } else st = ":)";
+    return { c: c, max: mx, st: st };
+  }
+
+  // ---------------------------------------------------------------
+  // Cena
+  // ---------------------------------------------------------------
+  var stage = document.getElementById("stage"), cv = document.getElementById("cv");
+  var renderer = new THREE.WebGLRenderer({ canvas: cv, antialias: true, alpha: true });
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.outputEncoding = THREE.sRGBEncoding;
+  var scene = new THREE.Scene();
+  var camera = new THREE.PerspectiveCamera(32, 1, 1, 400);
+  camera.position.set(26, 14, 62);
+  var controls = new THREE.OrbitControls(camera, cv);
+  controls.enableDamping = true; controls.enablePan = false;
+  controls.minDistance = 30; controls.maxDistance = 120;
+  controls.maxPolarAngle = Math.PI * 0.62;
+  controls.target.set(0, 0, 0);
+
+  var hemi = new THREE.HemisphereLight(0xffffff, 0x8a96a0, 0.95); scene.add(hemi);
+  var sun = new THREE.DirectionalLight(0xffffff, 0.85); sun.position.set(30, 40, 50); scene.add(sun);
+  var fill = new THREE.DirectionalLight(0xbfd6ff, 0.35); fill.position.set(-40, -10, 20); scene.add(fill);
+
+  function mat(color, rough, metal) {
+    return new THREE.MeshStandardMaterial({ color: color, roughness: rough == null ? 0.6 : rough, metalness: metal || 0 });
+  }
+  var M = {
+    shell: mat(0xe7e5e0, 0.55), shellIn: mat(0xd6d4cf, 0.8), dark: mat(0x1b2126, 0.5), bezel: mat(0x242c32, 0.4),
+    pcb: mat(0x0f5f3d, 0.7), esp: mat(0x20303d, 0.5), metal: mat(0xb9c0c6, 0.3, 0.8), white: mat(0xeef1f3, 0.5),
+    blue: mat(0x1f5fb5, 0.5), gold: mat(0xc9a227, 0.35, 0.7), black: mat(0x101315, 0.5),
+    brass: mat(0xb08d57, 0.35, 0.8), ldr: mat(0xb4672a, 0.5)
+  };
+
+  function rrect(w, h, r) {
+    var s = new THREE.Shape(), x = -w / 2, y = -h / 2;
+    s.moveTo(x + r, y); s.lineTo(x + w - r, y); s.quadraticCurveTo(x + w, y, x + w, y + r);
+    s.lineTo(x + w, y + h - r); s.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    s.lineTo(x + r, y + h); s.quadraticCurveTo(x, y + h, x, y + h - r);
+    s.lineTo(x, y + r); s.quadraticCurveTo(x, y, x + r, y);
+    return s;
+  }
+  function box(w, h, d, m) { return new THREE.Mesh(new THREE.BoxGeometry(w, h, d), m); }
+  function cyl(rt, rb, h, m, seg) { return new THREE.Mesh(new THREE.CylinderGeometry(rt, rb, h, seg || 32), m); }
+  function place(o, x, y, z, parent) { o.position.set(x, y, z); (parent || root).add(o); return o; }
+  function onZ(o) { o.rotation.x = Math.PI / 2; return o; }
+
+  function label(text, w, h, px, sub, cor) {
+    var c = document.createElement("canvas"); c.width = 512; c.height = Math.round(512 * h / w);
+    var g = c.getContext("2d");
+    g.clearRect(0, 0, c.width, c.height);
+    g.fillStyle = cor || "#2b3238"; g.textAlign = "center"; g.textBaseline = "middle";
+    g.font = "600 " + px + "px 'IBM Plex Mono', Consolas, monospace";
+    g.fillText(text, c.width / 2, sub ? c.height * 0.38 : c.height / 2);
+    if (sub) { g.font = "400 " + Math.round(px * 0.42) + "px 'IBM Plex Sans', Arial, sans-serif"; g.fillText(sub, c.width / 2, c.height * 0.74); }
+    var t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+    return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true }));
+  }
+
+  var root = new THREE.Group(); scene.add(root);
+
+  // Luz interna: reforça os detalhes quando a tampa abre
+  var luzInterna = new THREE.PointLight(0xffffff, 0.8, 34); luzInterna.position.set(0, 1, 1.5); scene.add(luzInterna);
+
+  // Ajudantes do interior: geometrias compartilhadas, pinos, espaçadores, fios e texturas de placa
+  var gPino = new THREE.CylinderGeometry(0.04, 0.04, 1, 6);
+  var gEsp = new THREE.CylinderGeometry(0.28, 0.28, 1, 6);
+  var gParafuso = new THREE.CylinderGeometry(0.32, 0.32, 0.08, 12);
+  var Mfio = {};
+  function mFio(cor) { return Mfio[cor] || (Mfio[cor] = mat(new THREE.Color(cor), 0.5)); }
+  function V3(x, y, z) { return new THREE.Vector3(x, y, z); }
+  function pinos(x, y, z, n, dx, dy, h, pai) { // n pinos metálicos em linha, eixo em Z, centro em z
+    for (var k = 0; k < n; k++) { var p = onZ(new THREE.Mesh(gPino, M.gold)); p.scale.y = h; place(p, x + k * dx, y + k * dy, z, pai); }
+  }
+  function espac(x, y, h, t) { // espaçador de latão do fundo até a placa (espessura t) e cabeça do parafuso
+    var s = onZ(new THREE.Mesh(gEsp, M.brass)); s.scale.y = h; place(s, x, y, zb + h / 2);
+    place(onZ(new THREE.Mesh(gParafuso, M.metal)), x, y, zb + h + t + 0.04);
+  }
+  function fio(cor, a, b, alt, r, a1, dy, pai) { // fio curvo de a até b, subindo alt e curvando dy de lado (pai: grupo onde o fio fica)
+    var m = a.clone().lerp(b, 0.5); m.z += alt; m.y += dy || 0;
+    var c = new THREE.CatmullRomCurve3([a, a1 || a.clone().add(V3(0, 0, alt * 0.5)), m, b.clone().add(V3(0, 0, alt * 0.5)), b]);
+    return place(new THREE.Mesh(new THREE.TubeGeometry(c, 20, r || 0.06, 5, false), mFio(cor)), 0, 0, 0, pai);
+  }
+  function pcbTex(w, h, px, fn) { // plano com furos, trilhas e serigrafia desenhados em canvas
+    var c = document.createElement("canvas"); c.width = Math.round(w * px); c.height = Math.round(h * px);
+    fn(c.getContext("2d"), px);
+    var t = new THREE.CanvasTexture(c); t.encoding = THREE.sRGBEncoding; t.anisotropy = 4;
+    return new THREE.Mesh(new THREE.PlaneGeometry(w, h), new THREE.MeshBasicMaterial({ map: t, transparent: true }));
+  }
+
+  // Casco: 4 cantos + 4 chapas separadas, para que todas as aberturas sejam furos vazados de verdade
+  function cantos(w, h, r) { // quatro cantos arredondados (mesma curva de rrect), em sentido anti-horário
+    var x = w / 2, y = h / 2;
+    function q(p0, c, p1) {
+      var o = [], n = 8, k, t;
+      for (k = 0; k <= n; k++) {
+        t = k / n;
+        o.push(new THREE.Vector2((1 - t) * (1 - t) * p0[0] + 2 * t * (1 - t) * c[0] + t * t * p1[0], (1 - t) * (1 - t) * p0[1] + 2 * t * (1 - t) * c[1] + t * t * p1[1]));
+      }
+      return o;
+    }
+    return { br: q([x - r, -y], [x, -y], [x, -y + r]), tr: q([x, y - r], [x, y], [x - r, y]), tl: q([-x + r, y], [-x, y], [-x, y - r]), bl: q([-x, -y + r], [-x, -y], [-x + r, -y]) };
+  }
+  function inv(a) { return a.slice().reverse(); }
+  function furo(cx, cy, w, h, r) { // furo retangular (r = 0) ou de cantos arredondados, centrado em (cx, cy) no plano da chapa
+    var p = new THREE.Path(), x = cx - w / 2, y = cy - h / 2;
+    if (!r) { p.moveTo(x, y); p.lineTo(x + w, y); p.lineTo(x + w, y + h); p.lineTo(x, y + h); return p; }
+    p.moveTo(x + r, y); p.lineTo(x + w - r, y); p.quadraticCurveTo(x + w, y, x + w, y + r);
+    p.lineTo(x + w, y + h - r); p.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
+    p.lineTo(x + r, y + h); p.quadraticCurveTo(x, y + h, x, y + h - r);
+    p.lineTo(x, y + r); p.quadraticCurveTo(x, y, x + r, y);
+    return p;
+  }
+  function chapa(u0, u1, v0, v1, furos, e, eixo) { // chapa de espessura e no plano (u, v) com furos; eixo orienta (u, v, espessura) no mundo
+    var s = new THREE.Shape([new THREE.Vector2(u0, v0), new THREE.Vector2(u1, v0), new THREE.Vector2(u1, v1), new THREE.Vector2(u0, v1)]);
+    s.holes = furos;
+    var g = new THREE.ExtrudeGeometry(s, { depth: e, bevelEnabled: false, curveSegments: 8 });
+    return g.applyMatrix4(new THREE.Matrix4().makeBasis(eixo[0], eixo[1], eixo[2]));
+  }
+  var eixoTopo = [V3(1, 0, 0), V3(0, 0, 1), V3(0, -1, 0)], eixoLado = [V3(0, 1, 0), V3(0, 0, 1), V3(1, 0, 0)];
+  var i;
+  var micFuro = new THREE.Path(); micFuro.absarc(1.2, 0, 0.45, 0, 6.283, false);          // microfone: furo redondo (y = 1,2, z = 0)
+  var ldrFuro = new THREE.Path(); ldrFuro.absarc(-6, 0, 0.5, 0, 6.283, false);              // janela do LDR: furo redondo de 1,0 (x = -6, z = 0)
+  var fTopo = [ldrFuro], fDir = [], fEsq = [micFuro, furo(-4.2, -0.2, 0.65, 1.3, 0.3)]; // LDR; DHT22; microfone e USB-C
+  for (i = 0; i < 5; i++) fTopo.push(furo(3, -2.1 + i * 0.95, 4.2, 0.28, 0));              // topo: ar do MQ2, 5 frestas
+  for (i = 0; i < 4; i++) fDir.push(furo(0.5, -1.6 + i, 3.4, 0.28, 0));                    // direita: DHT22, 4 frestas
+  place(new THREE.Mesh(chapa(-10.7, 10.7, -3.25, 2.85, fTopo, 0.3, eixoTopo), M.shell), 0, 8, 0);        // parede do topo
+  place(new THREE.Mesh(chapa(-6.7, 6.7, -3.25, 2.85, fDir, 0.3, eixoLado), M.shell), 11.7, 0, 0);        // parede da direita
+  place(new THREE.Mesh(chapa(-6.7, 6.7, -3.25, 2.85, fEsq, 0.3, eixoLado), M.shell), -12, 0, 0);         // parede da esquerda
+  place(box(21.4, 0.3, 6.1, M.shell), 0, -7.85, -0.2);                                                    // parede de baixo
+  var o = cantos(24, 16, 1.3), n = cantos(23.4, 15.4, 1.0);
+  ["tr", "tl", "bl", "br"].forEach(function (k) {                                                         // cantos arredondados
+    place(new THREE.Mesh(new THREE.ExtrudeGeometry(new THREE.Shape(o[k].concat(inv(n[k]))), { depth: 6.1, bevelEnabled: false }), M.shell), 0, 0, -3.25);
+  });
+  var back = new THREE.Mesh(new THREE.ExtrudeGeometry(rrect(23.5, 15.5, 1.0), { depth: 0.3, bevelEnabled: false, curveSegments: 10 }), M.shellIn);
+  place(back, 0, 0, -3.25);
+
+  // As aberturas (ar, LDR, microfone e USB-C) são furos vazados nas chapas, acima
+
+  // Interior (sobre o fundo, z = -2.95)
+  var zb = -2.95, zp = zb + 0.5, zt = zp + 0.18;                                      // fundo; placa base sobre espaçadores de 0,5
+  var zE = zt + 1.01, zm = zb + 0.62;                                                 // topo do ESP32 e topo das placas dos sensores
+  function pad(i, sup) { return V3(-2.286 + 0.254 * i, sup ? -0.05 : -2.35, zE + 0.03); } // pino i do ESP32 (fileira de cima ou de baixo)
+  function rail(k, gnd) { return V3(-4.9 + 0.508 * k, gnd ? 2.69 : 3.2, zt + 0.02); }       // furo k do barramento 3V3 ou GND
+
+  // Placa base perfurada (14 x 9) com barramentos 3V3 e GND
+  place(box(14, 9, 0.18, M.pcb), 1, -1, zp + 0.09);
+  place(pcbTex(14, 9, 50, function (g, px) {
+    var x, y;
+    function tx(v) { return (v + 6) * px; } function ty(v) { return (3.5 - v) * px; }
+    g.fillStyle = "#c9a227"; g.fillRect(tx(-4.9), ty(3.35), 12.4 * px, 0.3 * px); g.fillRect(tx(-4.9), ty(2.84), 12.4 * px, 0.3 * px);
+    for (x = -5.408; x < 7.6; x += 0.508) for (y = 3.2; y > -5.4; y -= 0.508) {
+      g.fillStyle = "#c9a227"; g.beginPath(); g.arc(tx(x), ty(y), 0.11 * px, 0, 6.283); g.fill();
+      g.fillStyle = "#0b1a12"; g.beginPath(); g.arc(tx(x), ty(y), 0.06 * px, 0, 6.283); g.fill();
+    }
+    g.strokeStyle = "#e8eaec"; g.lineWidth = 0.04 * px; g.strokeRect(tx(-3.1), ty(0.5), 6.2 * px, 3.4 * px);
+    g.fillStyle = "#e8eaec"; g.font = "600 " + Math.round(0.3 * px) + "px 'IBM Plex Mono', monospace"; g.textBaseline = "middle";
+    g.fillText("ESP32", tx(-3), ty(-3.2)); g.fillText("3V3", tx(-5.95), ty(3.2)); g.fillText("GND", tx(-5.95), ty(2.69));
+  }), 1, -1, zt + 0.003);
+  espac(-5.5, -5, 0.5, 0.18); espac(-5.5, 1.7, 0.5, 0.18); espac(7.5, -5, 0.5, 0.18); espac(7.5, 1.7, 0.5, 0.18);
+
+  // ESP32 DevKit (5,6 x 2,8) encaixado em soquetes de 19 pinos
+  place(box(5.1, 0.25, 0.85, M.black), 0, -0.05, zt + 0.425); place(box(5.1, 0.25, 0.85, M.black), 0, -2.35, zt + 0.425);
+  place(box(5.6, 2.8, 0.16, M.esp), 0, -1.2, zt + 0.93);
+  place(pcbTex(5.6, 2.8, 80, function (g, px) {
+    var L = ["3V3", "EN", "36", "39", "34", "35", "32", "33", "25", "26", "27", "14", "12", "GND", "13", "D2", "D3", "CMD", "5V"];
+    var R = ["GND", "23", "22", "TX", "RX", "21", "GND", "19", "18", "5", "17", "16", "4", "0", "2", "15", "D1", "D0", "CLK"];
+    g.font = "600 " + Math.round(0.16 * px) + "px 'IBM Plex Mono', monospace"; g.textAlign = "center"; g.textBaseline = "middle";
+    for (var k = 0; k < 19; k++) {
+      var X = (0.514 + 0.254 * k) * px;
+      g.fillStyle = "#d9b14a";
+      g.beginPath(); g.arc(X, 0.25 * px, 0.07 * px, 0, 6.283); g.fill(); g.beginPath(); g.arc(X, 2.55 * px, 0.07 * px, 0, 6.283); g.fill();
+      g.fillStyle = "#e8eaec";
+      g.save(); g.translate(X, 0.72 * px); g.rotate(Math.PI / 2); g.fillText(L[k], 0, 0); g.restore();
+      g.save(); g.translate(X, 2.08 * px); g.rotate(Math.PI / 2); g.fillText(R[k], 0, 0); g.restore();
+    }
+  }), 0, -1.2, zE + 0.003);
+  place(box(1.9, 1.7, 0.3, M.metal), 1.25, -1.2, zE + 0.15);                          // blindagem do módulo Wi-Fi
+  place(box(0.55, 1.5, 0.02, M.gold), 2.5, -1.2, zE + 0.01);                          // área da antena
+  place(box(0.9, 0.75, 0.28, M.metal), -2.55, -1.2, zE + 0.14);                       // conector micro-USB
+  place(box(0.5, 0.5, 0.1, M.black), -1.5, -1.2, zE + 0.05);                          // chip USB-serial
+  place(box(0.65, 0.35, 0.15, M.black), -0.5, -0.9, zE + 0.075);                      // regulador de 3V3
+  place(box(0.4, 0.35, 0.2, M.black), -1.8, -2.0, zE + 0.1); place(box(0.4, 0.35, 0.2, M.black), -1.8, -0.4, zE + 0.1); // botões EN e BOOT
+  var ledPlaca = new THREE.MeshStandardMaterial({ color: 0xd23b32, emissive: 0xd23b32, emissiveIntensity: 1.0, roughness: 0.3 });
+  place(box(0.25, 0.15, 0.08, ledPlaca), -0.9, -1.55, zE + 0.04);                     // LED de energia da placa (segue o POWER)
+
+  // Entrada USB-C da lateral esquerda (0,89 x 0,33): suporte preso à parede, carcaça metálica, língua com contatos e cabo até o micro-USB do ESP32
+  var gBase = function (w, h, r) { return new THREE.Shape(furo(0, 0, w, h, r).getPoints(8)); };
+  var sPlaca = gBase(1.2, 2.2, 0); sPlaca.holes = [furo(0, 0, 0.326, 0.894, 0.16)];
+  var sCasca = gBase(0.326, 0.894, 0.16); sCasca.holes = [furo(0, 0, 0.26, 0.83, 0.12)];
+  [[sPlaca, 0.3, M.black, -11.7], [sCasca, 0.65, M.metal, -11.75]].forEach(function (u) {
+    var g = new THREE.ExtrudeGeometry(u[0], { depth: u[1], bevelEnabled: false, curveSegments: 6 });
+    g.applyMatrix4(new THREE.Matrix4().makeBasis(V3(0, 1, 0), V3(0, 0, 1), V3(1, 0, 0)));
+    place(new THREE.Mesh(g, u[2]), u[3], -4.2, -0.2);                                 // suporte de plástico e carcaça do conector
+  });
+  place(box(0.04, 0.3, 0.86, M.black), -11.08, -4.2, -0.2);                           // fundo do conector
+  place(box(0.5, 0.05, 0.7, M.black), -11.35, -4.2, -0.2);                            // língua de contatos
+  place(box(0.4, 0.008, 0.6, M.gold), -11.33, -4.171, -0.2); place(box(0.4, 0.008, 0.6, M.gold), -11.33, -4.229, -0.2); // contatos
+  place(box(0.5, 0.45, 1.1, M.black), -10.85, -4.2, -0.2);                            // corpo traseiro do conector
+  place(box(0.9, 0.6, 0.28, M.black), -3.45, -1.2, zE + 0.14);                        // plugue micro-USB no ESP32
+  place(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(-10.6, -4.2, -0.2), V3(-9.8, -4.2, -0.2), V3(-8, -3.8, -0.6), V3(-5.5, -2, -1), V3(-4.7, -1.2, zE + 0.14), V3(-3.9, -1.2, zE + 0.14)]), 30, 0.14, 6, false), mFio("#15191c")), 0, 0, 0); // cabo USB
+  var mem = new THREE.Mesh(new THREE.CircleGeometry(0.34, 20), M.dark); mem.rotation.y = -Math.PI / 2; place(mem, -11.705, 1.2, 0); // membrana do microfone, vista pelo furo
+
+  // MQ2 (módulo 2,2 x 3,2): lata de 1,7 voltada para as aberturas do topo
+  place(box(2.2, 3.2, 0.12, M.blue), 3, 5.4, zb + 0.56);
+  espac(2.15, 4, 0.5, 0.12); espac(3.85, 4, 0.5, 0.12); espac(2.15, 6.85, 0.5, 0.12); espac(3.85, 6.85, 0.5, 0.12);
+  place(onZ(cyl(0.95, 0.95, 0.12, M.black, 28)), 3, 5.9, zm + 0.06);                  // base plástica
+  place(onZ(cyl(0.85, 0.85, 0.9, M.metal, 28)), 3, 5.9, zm + 0.5);                    // lata metálica
+  place(new THREE.Mesh(new THREE.CircleGeometry(0.65, 24), M.dark), 3, 5.9, zm + 0.955); // malha de proteção
+  place(box(1.02, 0.25, 0.25, M.black), 3, 3.95, zm + 0.125); pinos(2.619, 3.95, zm + 0.45, 4, 0.254, 0, 0.4);
+  place(box(0.7, 0.4, 0.12, M.black), 2.5, 4.6, zm + 0.06); place(box(0.5, 0.5, 0.3, M.white), 3.7, 4.55, zm + 0.15); // LM393 e trimpot
+
+  // LDR: módulo 3,2 x 1,4 no fundo e o LDR de 6 mm saindo 0,15 pelo furo redondo do topo
+  place(box(3.2, 1.4, 0.12, M.blue), -6, 5.5, zb + 0.56);
+  espac(-7.4, 5, 0.5, 0.12); espac(-4.6, 5, 0.5, 0.12); espac(-7.4, 6, 0.5, 0.12); espac(-4.6, 6, 0.5, 0.12);
+  place(box(0.76, 0.25, 0.25, M.black), -6, 5, zm + 0.125); pinos(-6.254, 5, zm + 0.45, 3, 0.254, 0, 0.4);
+  place(box(0.6, 0.4, 0.12, M.black), -5.2, 5.7, zm + 0.06); place(box(0.5, 0.5, 0.3, M.white), -6.9, 5.6, zm + 0.15);
+  place(label("LDR", 1, 0.35, 60, undefined, "#ffffff"), -6, 5.35, zm + 0.003);
+  place(cyl(0.7, 0.7, 0.2, M.dark, 24), -6, 7.6, 0);                                  // suporte do LDR preso à parede
+  place(cyl(0.22, 0.22, 0.3, M.black, 16), -6, 7.85, 0);                              // haste do LDR, passando pelo furo
+  place(cyl(0.3, 0.3, 0.15, M.ldr, 20), -6, 8.075, 0);                                // LDR 0,15 para fora da parede (só vê a luz de fora)
+  place(box(0.2, 0.2, 0.02, M.gold), -6.1, 5.95, zm + 0.01); place(box(0.2, 0.2, 0.02, M.gold), -5.9, 5.95, zm + 0.01);
+  fio("#b9c0c6", V3(-6.1, 7.5, 0), V3(-6.1, 5.95, zm + 0.03), 0.3, 0.03, V3(-6.1, 7, -0.2));
+  fio("#b9c0c6", V3(-5.9, 7.5, 0), V3(-5.9, 5.95, zm + 0.03), 0.3, 0.03, V3(-5.9, 7, -0.2));
+
+  // Módulo de som (3,2 x 1,6) e microfone preso à parede, alinhado com o furo da lateral esquerda
+  place(box(1.6, 3.2, 0.12, M.blue), -9.6, 1.2, zb + 0.56);
+  espac(-10.2, -0.2, 0.5, 0.12); espac(-9, -0.2, 0.5, 0.12); espac(-10.2, 2.6, 0.5, 0.12); espac(-9, 2.6, 0.5, 0.12);
+  place(box(0.76, 0.25, 0.25, M.black), -9.6, -0.1, zm + 0.125); pinos(-9.854, -0.1, zm + 0.45, 3, 0.254, 0, 0.4);
+  place(box(0.7, 0.4, 0.12, M.black), -9.6, 2.1, zm + 0.06); place(box(0.5, 0.5, 0.3, M.white), -9.6, 0.7, zm + 0.15);
+  place(label("MIC", 1, 0.35, 60, undefined, "#ffffff"), -9.6, 1.4, zm + 0.003);
+  place(box(0.2, 0.2, 0.02, M.gold), -10.25, 1.5, zm + 0.01); place(box(0.2, 0.2, 0.02, M.gold), -10.25, 0.9, zm + 0.01);
+  var micA = cyl(0.65, 0.65, 0.5, M.dark, 20); micA.rotation.z = Math.PI / 2; place(micA, -11.45, 1.2, 0);   // suporte na parede
+  var micB = cyl(0.45, 0.45, 0.6, M.metal, 20); micB.rotation.z = Math.PI / 2; place(micB, -11.4, 1.2, 0);   // cápsula do microfone
+  fio("#d23b32", V3(-11.1, 1.35, 0), V3(-10.25, 1.5, zm + 0.03), 0.4, 0.03);
+  fio("#15191c", V3(-11.1, 1.05, 0), V3(-10.25, 0.9, zm + 0.03), 0.4, 0.03);
+
+  // DHT22: placa vertical em dois suportes, com o corpo (1,5 x 2,5 x 0,77) voltado para as aberturas da direita
+  place(box(0.5, 0.5, 3.95, M.shell), 10.24, -0.45, -0.975); place(box(0.5, 0.5, 3.95, M.shell), 10.24, 1.45, -0.975);
+  place(box(0.12, 2.4, 3, M.blue), 10.54, 0.5, -0.1);
+  place(box(0.77, 1.5, 2.5, M.white), 10.985, 0.5, -0.1);
+  for (i = 0; i < 5; i++) place(box(0.02, 1.2, 0.07, M.dark), 11.372, 0.5, 0.65 - i * 0.25); // grade do sensor
+  var lbDht = label("DHT22", 1.4, 0.22, 40, undefined, "#ffffff"); lbDht.rotation.y = Math.PI / 2; place(lbDht, 10.605, 0.5, 1.27);
+  place(box(0.25, 0.76, 0.25, M.black), 10.54, 0.5, -1.725); pinos(10.54, 0.246, -2.05, 3, 0, 0.254, 0.4);
+
+  // Fiação dos sensores: vermelho = 3V3, preto = GND, demais = sinal
+  fio("#d23b32", V3(10.54, 0.246, -2.25), rail(24, false), 1, 0.06, V3(10.2, 0.246, -2.5));
+  fio("#15191c", V3(10.54, 0.754, -2.25), rail(23, true), 1, 0.06, V3(10.2, 0.754, -2.5));
+  fio("#e0aa00", V3(10.54, 0.5, -2.25), pad(14, true), 1, 0.06, V3(10.2, 0.5, -2.5), 1.2);
+  fio("#d23b32", V3(2.619, 3.95, zm + 0.65), rail(15, false), 0.6);
+  fio("#15191c", V3(2.873, 3.95, zm + 0.65), rail(16, true), 0.6);
+  fio("#2e9e55", V3(3.381, 3.95, zm + 0.65), pad(10, true), 1);
+  fio("#d23b32", V3(-6.254, 5, zm + 0.65), rail(2, false), 0.6);
+  fio("#15191c", V3(-6, 5, zm + 0.65), rail(3, true), 0.6);
+  fio("#e0762a", V3(-5.746, 5, zm + 0.65), pad(5, true), 1);
+  fio("#d23b32", V3(-9.854, -0.1, zm + 0.65), rail(0, false), 0.8, 0.06, null, 1);
+  fio("#15191c", V3(-9.6, -0.1, zm + 0.65), rail(1, true), 0.8, 0.06, null, 1.6);
+  fio("#1f6fd1", V3(-9.346, -0.1, zm + 0.65), pad(2, true), 1, 0.06, null, 1);
+  fio("#d23b32", pad(0, true), rail(6, false), 0.5); fio("#15191c", pad(13, true), rail(12, true), 0.5);
+
+  // ---------------- Tampa com dobradiça (lado esquerdo) ----------------
+  var hinge = new THREE.Group(); hinge.position.set(-12, 0, 2.85); root.add(hinge);
+  var lid = new THREE.Group(); lid.position.x = 12; hinge.add(lid);
+  // Saída de som: 19 furos vazados na tampa, dentro do diâmetro do buzzer (1,8); o chanfro da tampa afina o furo em 0,08 no meio
+  var sLid = rrect(23.8, 15.8, 1.2), furosSom = [[0, 0]], ang;
+  for (i = 0; i < 6; i++) { ang = i * Math.PI / 3; furosSom.push([0.38 * Math.cos(ang), 0.38 * Math.sin(ang)]); }
+  for (i = 0; i < 12; i++) { ang = (i + 0.5) * Math.PI / 6; furosSom.push([0.72 * Math.cos(ang), 0.72 * Math.sin(ang)]); }
+  furosSom.forEach(function (p) { var h = new THREE.Path(); h.absarc(7.8 + p[0], -2.7 + p[1], 0.17, 0, 6.283, false); sLid.holes.push(h); });
+  var lidBody = new THREE.Mesh(new THREE.ExtrudeGeometry(sLid, {
+    depth: 0.4, bevelEnabled: true, bevelThickness: 0.08, bevelSize: 0.08, bevelSegments: 3, curveSegments: 10 }), M.shell);
+  lid.add(lidBody);
+  var fz = 0.48; // face frontal da tampa
+
+  // LCD: moldura + tela com textura desenhada
+  place(box(12.2, 6.8, 0.16, M.bezel), -3, 2.5, fz + 0.08, lid);
+  var lcdCanvas = document.createElement("canvas"); lcdCanvas.width = 800; lcdCanvas.height = 320;
+  var lcdCtx = lcdCanvas.getContext("2d");
+  var lcdTex = new THREE.CanvasTexture(lcdCanvas); lcdTex.encoding = THREE.sRGBEncoding; lcdTex.anisotropy = 4;
+  var lcdMat = new THREE.MeshBasicMaterial({ map: lcdTex });
+  place(new THREE.Mesh(new THREE.PlaneGeometry(10.4, 5.4), lcdMat), -3, 2.5, fz + 0.165, lid);
+  // parte de trás do LCD e módulo I2C
+  place(box(9.8, 5.8, 0.25, M.pcb), -3, 2.5, -0.2, lid);
+  place(box(3.6, 1.4, 0.25, M.blue), -3, 5.3, -0.45, lid);
+  place(box(0.7, 0.5, 0.12, M.black), -3.9, 5.2, -0.635, lid); place(box(0.5, 0.5, 0.3, M.white), -1.8, 5.2, -0.725, lid); // PCF8574 e trimpot do contraste
+  place(box(1.02, 0.25, 0.25, M.black), -3, 5.85, -0.7, lid); pinos(-3.381, 5.85, -1, 4, 0.254, 0, 0.4, lid); // conector de 4 pinos do módulo I2C
+  [[-4.5, 0.2], [1.5, 0.2], [-4.5, 4.8], [1.5, 4.8]].forEach(function (p) { place(onZ(new THREE.Mesh(gParafuso, M.metal)), p[0], p[1], -0.365, lid); }); // parafusos da placa do LCD
+
+  // LEDs (verde, amarelo, vermelho) em coluna
+  var ledDefs = [4.4, 2.7, 1.0];
+  var leds = ledDefs.map(function (y, k) {
+    place(onZ(cyl(0.62, 0.62, 0.14, M.bezel, 28)), 7.8, y, fz + 0.07, lid);
+    var m = new THREE.MeshStandardMaterial({ color: new THREE.Color(LEDS[k].cor), emissive: new THREE.Color(LEDS[k].cor), emissiveIntensity: LEDS[k].apagado, roughness: 0.3 });
+    place(onZ(cyl(0.42, 0.42, 0.3, m, 28)), 7.8, y, fz + 0.2, lid);
+    place(onZ(cyl(0.4, 0.4, 0.6, m, 20)), 7.8, y, -0.3, lid);                         // corpo do LED atrás da tampa (mesmo material: acende junto)
+    place(box(0.06, 0.06, 0.9, M.metal), 7.65, y, -0.75, lid); place(box(0.06, 0.06, 0.9, M.metal), 7.95, y, -0.75, lid); // terminais
+    return m;
+  });
+  var ledLbl = label("ALERTA", 2.6, 0.6, 62); place(ledLbl, 7.8, -0.35, fz + 0.01, lid);
+
+  // Buzzer (1,8 x 0,6) preso por um colar atrás da tampa, com uma câmara de ar de 0,22 sob os furos para o som sair sem abafar
+  place(onZ(cyl(0.9, 0.9, 0.6, M.black, 24)), 7.8, -2.7, -0.6, lid);
+  place(new THREE.Mesh(new THREE.CircleGeometry(0.7, 24), M.brass), 7.8, -2.7, -0.295, lid);        // diafragma de latão, visto pelos furos
+  var sColar = new THREE.Shape(); sColar.absarc(0, 0, 1.05, 0, 6.283, false);
+  var hColar = new THREE.Path(); hColar.absarc(0, 0, 0.9, 0, 6.283, true); sColar.holes.push(hColar);
+  place(new THREE.Mesh(new THREE.ExtrudeGeometry(sColar, { depth: 0.22, bevelEnabled: false, curveSegments: 24 }), M.dark), 7.8, -2.7, -0.3, lid); // colar do buzzer
+  place(box(0.06, 0.06, 0.3, M.metal), 7.5, -2.7, -1.05, lid); place(box(0.06, 0.06, 0.3, M.metal), 8.1, -2.7, -1.05, lid); // terminais do buzzer
+
+  // Botões
+  var clicaveis = [];
+  var botoes = [["POWER", -8.5, "#d23b32", "power"], ["MODO", -4.5, "#1f6fd1", "modo"], ["MUTE", -0.5, "#d4961a", "mute"]];
+  var capas = {};
+  botoes.forEach(function (b) {
+    place(onZ(cyl(1.12, 1.12, 0.18, M.bezel, 32)), b[1], -4.2, fz + 0.09, lid);
+    var cap = onZ(cyl(0.88, 0.88, 0.55, mat(new THREE.Color(b[2]), 0.45), 32));
+    place(cap, b[1], -4.2, fz + 0.28, lid);
+    cap.userData.acao = b[3]; cap.userData.base = fz + 0.28; clicaveis.push(cap); capas[b[3]] = cap;
+    place(label(b[0], 2.8, 0.7, 70), b[1], -6.05, fz + 0.01, lid);
+    place(box(0.8, 0.8, 0.45, M.black), b[1], -4.2, -0.225, lid);                     // chave tátil atrás da tampa
+    place(box(0.06, 0.06, 0.5, M.metal), b[1] - 0.25, -4.2, -0.7, lid); place(box(0.06, 0.06, 0.5, M.metal), b[1] + 0.25, -4.2, -0.7, lid);
+  });
+
+  // Placa de identificação
+  place(label("SIMAEP", 8.2, 2.4, 110), 6.2, -5.8, fz + 0.01, lid);
+
+  // Cabo do display (GND, VCC, SDA, SCL): sai do módulo I2C na tampa e acompanha a abertura até o ESP32
+  var cabos = [], abAnt = -1;
+  function novoCabo(cor, a, x, y, z) { // (x, y, z) = ponta do terminal na tampa; padrão: conector do módulo I2C
+    var o = new THREE.Object3D(); o.position.set(x, y === undefined ? 5.85 : y, z === undefined ? -1.2 : z); lid.add(o);
+    var m = new THREE.Mesh(new THREE.BufferGeometry(), mFio(cor)); root.add(m);
+    cabos.push({ m: m, a: a, o: o });
+  }
+  function atualizarCabos() {
+    var b = new THREE.Vector3();
+    cabos.forEach(function (c) {
+      c.o.getWorldPosition(b);
+      var b1 = c.o.localToWorld(V3(0, 0, -1.2)), a1 = c.a.clone().add(V3(0, 0, 1));
+      c.m.geometry.dispose();
+      c.m.geometry = new THREE.TubeGeometry(new THREE.CatmullRomCurve3([c.a, a1, a1.clone().lerp(b1, 0.5), b1, b.clone()]), 24, 0.06, 5, false);
+    });
+  }
+  novoCabo("#15191c", pad(0, false), -3.381); novoCabo("#d23b32", pad(18, true), -3.127);
+  novoCabo("#1f6fd1", pad(5, false), -2.873); novoCabo("#2e9e55", pad(2, false), -2.619);
+
+  // LEDs, buzzer e botões: terra comum ligado em série na tampa (fios fixos) e um fio de sinal de cada um até o ESP32
+  var cinza = "#15191c";
+  fio(cinza, V3(7.95, 4.4, -1.2), V3(7.95, 2.7, -1.2), -0.5, 0.05, null, 0, lid); fio(cinza, V3(7.95, 2.7, -1.2), V3(7.95, 1, -1.2), -0.5, 0.05, null, 0, lid);
+  fio(cinza, V3(7.95, 1, -1.2), V3(8.1, -2.7, -1.2), -0.7, 0.05, null, 0, lid);       // cátodos dos LEDs até o terminal negativo do buzzer
+  fio(cinza, V3(-8.25, -4.2, -0.95), V3(-4.25, -4.2, -0.95), -0.6, 0.05, null, 0, lid); fio(cinza, V3(-4.25, -4.2, -0.95), V3(-0.25, -4.2, -0.95), -0.6, 0.05, null, 0, lid); // terra dos botões
+  novoCabo("#2e9e55", pad(7, false), 7.65, 4.4); novoCabo("#e0aa00", pad(8, false), 7.65, 2.7); novoCabo("#e0762a", pad(9, false), 7.65, 1); // LEDs verde, amarelo e vermelho
+  novoCabo("#e8eaec", pad(10, false), 7.5, -2.7); novoCabo(cinza, pad(6, false), 8.1, -2.7);                                              // buzzer: sinal e terra
+  novoCabo("#8a5cd6", pad(11, false), -8.75, -4.2, -0.95); novoCabo("#d65cb0", pad(12, false), -4.75, -4.2, -0.95); novoCabo("#8a6a4a", pad(14, false), -0.75, -4.2, -0.95); // POWER, MODO e MUTE
+  novoCabo(cinza, pad(0, false), -0.25, -4.2, -0.95);                                                                                     // terra dos botões
+  atualizarCabos();
+
+  // ---------------------------------------------------------------
+  // Sala de aula (montada no primeiro clique do botão; 1 unidade = 1 cm, aparelho a 1,5 m do chão na parede da frente, ao lado do quadro, atrás da mesa do professor)
+  // ---------------------------------------------------------------
+  var sala = null, interruptor = null, luzesAcesas = true, luzAntes = null;
+  var LUZ_ESCURA = 8;                                                                 // luminosidade (%) aplicada quando as luzes da sala são apagadas
+  var INT_CLARA = { hemi: 0.95, sun: 0.85, fill: 0.35 }, INT_ESCURA = { hemi: 0.22, sun: 0.12, fill: 0.06 };
+  function montarSala() {
+    sala = new THREE.Group(); scene.add(sala);
+    var Q = SALA, larg = Q.meiaLargura * 2, comp = Q.zFundo - Q.zFrente, alt = Q.teto - Q.chao, zc = (Q.zFrente + Q.zFundo) / 2, yc = (Q.teto + Q.chao) / 2;
+    function H(y) { return Q.chao + y; }                                              // altura em cm acima do piso
+    var Ms = {
+      parede: mat(0x5a5c59, 0.95), destaque: mat(0x2b4a57, 0.9), teto: mat(0x62635f, 0.95), rodape: mat(0x8d8e8a, 0.6),
+      madeira: mat(0xc9a574, 0.6), metal: mat(0x59636b, 0.4, 0.6), aluminio: mat(0xb9c0c6, 0.3, 0.8), tampo: mat(0xbfc2c4, 0.5),
+      quadro: mat(0xcfd2d4, 0.35), branco: mat(0xd0d3d4, 0.6), preto: mat(0x14181b, 0.5), porta: mat(0xb38a58, 0.6), plastico: mat(0xffffff, 0.45),
+      vaso: mat(0x2c3338, 0.6), folha: mat(0x2e8a4a, 0.8), tela: mat(0x0b0f12, 0.25), chao: mat(0xffffff, 0.7),
+      vidro: new THREE.MeshBasicMaterial({ color: 0xcfe8ff }), luz: new THREE.MeshBasicMaterial({ color: 0xffffff }),
+      ponto: new THREE.MeshBasicMaterial({ color: 0x2e9e55 }), halo: new THREE.MeshBasicMaterial({ transparent: true, opacity: 0, depthWrite: false })
+    };
+    sala.userData.mats = Ms;
+    // Piso de tábuas claras (textura por canvas, sem arquivos externos)
+    var cv2 = document.createElement("canvas"); cv2.width = cv2.height = 256;
+    var g = cv2.getContext("2d"), tons = ["#d9c3a0", "#cfb58f", "#dcc8a8", "#c8ae88"], k;
+    for (k = 0; k < 4; k++) { g.fillStyle = tons[k]; g.fillRect(0, k * 64, 256, 64); g.fillStyle = "#a88f6c"; g.fillRect(0, k * 64, 256, 2); g.fillRect((k * 83) % 256, k * 64, 2, 64); }
+    var tex = new THREE.CanvasTexture(cv2); tex.encoding = THREE.sRGBEncoding; tex.wrapS = tex.wrapT = THREE.RepeatWrapping; tex.repeat.set(larg / 200, comp / 200); tex.anisotropy = 4;
+    Ms.chao.map = tex; Ms.chao.color.set(0x8a8a8a);
+    function plano(w, h, m, x, y, z, ry, rx) { var p = new THREE.Mesh(new THREE.PlaneGeometry(w, h), m); p.rotation.set(rx || 0, ry || 0, 0); return place(p, x, y, z, sala); }
+
+    // Paredes, piso e teto (faces voltadas para dentro: vistos de fora ficam transparentes, como uma casa de boneca)
+    plano(larg, alt, Ms.destaque, 0, yc, Q.zFrente);                        // frente (parede de destaque, com o aparelho)
+    plano(larg, alt, Ms.parede, 0, yc, Q.zFundo, Math.PI);                  // fundo
+    plano(comp, alt, Ms.parede, -Q.meiaLargura, yc, zc, Math.PI / 2);       // esquerda (janelas)
+    plano(comp, alt, Ms.parede, Q.meiaLargura, yc, zc, -Math.PI / 2);       // direita (porta)
+    plano(larg, comp, Ms.chao, 0, Q.chao, zc, 0, -Math.PI / 2);             // piso
+    plano(larg, comp, Ms.teto, 0, Q.teto, zc, 0, Math.PI / 2);              // teto
+    // Rodapés finos
+    place(box(larg, 8, 1, Ms.rodape), 0, H(4), Q.zFrente + 0.5, sala); place(box(larg, 8, 1, Ms.rodape), 0, H(4), Q.zFundo - 0.5, sala);
+    place(box(1, 8, comp, Ms.rodape), -Q.meiaLargura + 0.5, H(4), zc, sala); place(box(1, 8, comp, Ms.rodape), Q.meiaLargura - 0.5, H(4), zc, sala);
+
+    // Quadro branco centralizado na parede (440 x 80 cm, base a 100 cm do piso), moldura de alumínio e bandeja de canetas
+    place(box(450, 90, 2, Ms.aluminio), 0, H(140), Q.zFrente + 1, sala);
+    plano(440, 80, Ms.quadro, 0, H(140), Q.zFrente + 2.1);
+    place(box(200, 4, 8, Ms.aluminio), 0, H(94), Q.zFrente + 4, sala);
+    [0x1f5fb5, 0xd23b32, 0x101315].forEach(function (cor, n) { place(cyl(1, 1, 12, mat(cor, 0.5)), -20 + n * 14, H(97), Q.zFrente + 5, sala).rotation.z = Math.PI / 2; });
+
+    // Mesa e cadeira do professor (tampo branco, pés metálicos)
+    place(box(140, 3, 70, Ms.tampo), SALA.xAparelho, H(74), 100, sala);
+    [-65, 65].forEach(function (dx) { place(box(3, 72, 60, Ms.metal), SALA.xAparelho + dx, H(36), 100, sala); });
+    place(box(42, 4, 42, Ms.metal), SALA.xAparelho, H(46), 40, sala); place(box(42, 36, 3, Ms.metal), SALA.xAparelho, H(66), 20, sala);
+    place(cyl(2, 2, 44, Ms.metal), SALA.xAparelho, H(22), 40, sala);
+    // Janelas amplas com esquadria preta e persiana rolô meio descida
+    [150, 330, 510, 690].forEach(function (z) {
+      var x = -Q.meiaLargura;
+      place(box(3, 134, 160, Ms.preto), x + 1.5, H(155), z, sala);
+      plano(152, 126, Ms.vidro, x + 3.2, H(155), z, Math.PI / 2);
+      place(box(2, 126, 3, Ms.preto), x + 3.8, H(155), z, sala);
+      place(box(2.5, 40, 150, Ms.branco), x + 4.2, H(200), z, sala);
+    });
+    // Porta de madeira com visor de vidro
+    place(box(5, 214, 98, Ms.preto), Q.meiaLargura - 2.5, H(107), 110, sala);
+    place(box(4, 210, 90, Ms.porta), Q.meiaLargura - 6, H(105), 110, sala);
+    plano(18, 70, Ms.vidro, Q.meiaLargura - 8.2, H(150), 110, -Math.PI / 2);
+    place(box(6, 3, 14, Ms.aluminio), Q.meiaLargura - 10, H(100), 140, sala);
+    // Painéis de LED embutidos no teto (2 x 4)
+    var painel = [];
+    [-110, 110].forEach(function (x) { [150, 320, 490, 660].forEach(function (z) { painel.push(place(box(80, 2, 80, Ms.luz), x, Q.teto - 1, z, sala)); }); });
+    // Vasos de planta no canto do fundo
+    [-310, 310].forEach(function (x) {
+      place(cyl(14, 11, 34, Ms.vaso), x, H(17), Q.zFundo - 30, sala);
+      [[0, 52, 0, 22], [-9, 68, 6, 16], [9, 62, -6, 17]].forEach(function (f) { place(new THREE.Mesh(new THREE.SphereGeometry(f[3], 10, 8), Ms.folha), x + f[0], H(f[1]), Q.zFundo - 30 + f[2], sala); });
+    });
+    // Interruptor ao lado da porta (clicável): placa, tecla, luz-piloto e área de clique ampliada
+    interruptor = new THREE.Group();
+    var xi = Q.meiaLargura;
+    place(box(1.5, 14, 10, Ms.branco), xi - 0.75, H(120), 185, interruptor);
+    var tecla = place(box(1.5, 7, 6, mat(0xf2f2f0, 0.4)), xi - 2, H(120), 185, interruptor);
+    place(box(0.8, 1.4, 1.4, Ms.ponto), xi - 1.6, H(129), 185, interruptor);
+    var halo = place(box(8, 40, 30, Ms.halo), xi - 4, H(120), 185, interruptor);
+    halo.userData.acao = "luz"; clicaveis.push(halo);
+    interruptor.userData.tecla = tecla; interruptor.userData.ponto = Ms.ponto;
+    sala.add(interruptor);
+    tecla.rotation.z = 0.35;
+    sala.userData.painel = Ms.luz; sala.userData.vidro = Ms.vidro;
+
+    // Carteiras modernas: tampo claro, pés metálicos e cadeiras de plástico coloridas (3 malhas instanciadas)
+    var gUn = new THREE.BoxGeometry(1, 1, 1), nCar = 12;
+    var iTop = new THREE.InstancedMesh(gUn, Ms.tampo, nCar), iMet = new THREE.InstancedMesh(gUn, Ms.metal, nCar * 8), iCad = new THREE.InstancedMesh(gUn, Ms.plastico, nCar * 2);
+    var m4 = new THREE.Matrix4(), q0 = new THREE.Quaternion(), pos = new THREE.Vector3(), esc = new THREE.Vector3(), cor = new THREE.Color();
+    var CORES = [0x1f6fd1, 0xe05a47, 0xf0b429, 0x1fa39a], a = 0, b = 0, c = 0, col, fil;
+    function inst(im, n, x, y, z, w, h, d) { m4.compose(pos.set(x, y, z), q0, esc.set(w, h, d)); im.setMatrixAt(n, m4); }
+    for (col = 0; col < 4; col++) for (fil = 0; fil < 3; fil++) {
+      var x0 = -210 + col * 140, z0 = 230 + fil * 130;
+      inst(iTop, a++, x0, H(74), z0, 62, 3, 46);                            // tampo
+      [-28, 28].forEach(function (dx) { [-19, 19].forEach(function (dz) { inst(iMet, b++, x0 + dx, H(36), z0 + dz, 3, 72, 3); }); });            // pés da mesa
+      [-16, 16].forEach(function (dx) { [-16, 16].forEach(function (dz) { inst(iMet, b++, x0 + dx, H(21), z0 + 40 + dz, 3, 42, 3); }); });     // pés da cadeira
+      cor.set(CORES[(col + fil) % 4]);
+      iCad.setColorAt(c, cor); inst(iCad, c++, x0, H(45), z0 + 40, 40, 3, 40);        // assento
+      iCad.setColorAt(c, cor); inst(iCad, c++, x0, H(63), z0 + 59, 40, 28, 3);        // encosto
+    }
+    iTop.frustumCulled = iMet.frustumCulled = iCad.frustumCulled = false;
+    sala.add(iTop); sala.add(iMet); sala.add(iCad);
+    sala.userData.painelMeshes = painel;
+  }
+  // Acende/apaga as luzes da sala: escurece a cena e ajusta a grandeza "Luminosidade" (mesmo caminho do campo numérico)
+  function luzesSala(ligar) {
+    var gl = GRANDEZAS.filter(function (x) { return x.id === "luz"; })[0], I = ligar ? INT_CLARA : INT_ESCURA;
+    luzesAcesas = ligar;
+    hemi.intensity = I.hemi; sun.intensity = I.sun; fill.intensity = I.fill;
+    if (sala) {
+      var M2 = sala.userData;
+      M2.painel.color.set(ligar ? 0xffffff : 0x3a3a3a); M2.vidro.color.set(ligar ? 0xcfe8ff : 0x8aa4b8);
+      interruptor.userData.tecla.rotation.z = ligar ? 0.35 : -0.35; interruptor.userData.ponto.color.set(ligar ? 0x2e9e55 : 0xd8a21a);
+    }
+    if (!ligar) { luzAntes = S.v.luz; definir(gl, LUZ_ESCURA); }
+    else if (luzAntes !== null) { if (S.v.luz === LUZ_ESCURA) definir(gl, luzAntes); luzAntes = null; }
+    atualizarUI();
+  }
+
+  // ---------------------------------------------------------------
+  // LCD
+  // ---------------------------------------------------------------
+  function desenharLCD() {
+    var g = lcdCtx, w = lcdCanvas.width, h = lcdCanvas.height;
+    var on = S.ligado;
+    g.fillStyle = on ? "#a5c97a" : "#16201a"; g.fillRect(0, 0, w, h);
+    if (!on) { lcdTex.needsUpdate = true; return; }
+    var r = resultado(), c = r.c;
+    var somCurto = c.som === "Moderado" ? "Medio" : c.som;
+    var l = [
+      "T:" + c.t.toFixed(1) + "C U:" + c.u.toFixed(1) + "% " + SIGLAS[S.modo],
+      "Ar:" + c.ar + " Som:" + somCurto,
+      "Luz:" + c.luz + (S.mudo ? " MUDO" : ""),
+      "ST:" + r.st
+    ];
+    g.fillStyle = "#1b3315"; g.textBaseline = "middle"; g.textAlign = "center";
+    g.font = "700 46px 'IBM Plex Mono', 'Courier New', monospace";
+    for (var row = 0; row < 4; row++) {
+      var s = (l[row] + "                    ").slice(0, 20);
+      for (var col = 0; col < 20; col++) g.fillText(s[col], col * 40 + 20, row * 80 + 42);
+    }
+    lcdTex.needsUpdate = true;
+  }
+
+  // ---------------------------------------------------------------
+  // Interface
+  // ---------------------------------------------------------------
+  var $ = function (id) { return document.getElementById(id); };
+
+  // Buzzer sonoro (Web Audio do navegador): bipa enquanto algum extremo (nível crítico) estiver ativo
+  var BUZZER = { freq: 2300, bipeMs: 180, pausaMs: 220, volume: 0.08 };
+  var audio = null, buzzTimer = null;
+  function audioPronto() { // o navegador só libera o som após um clique ou tecla do usuário
+    if (!audio) { var AC = window.AudioContext || window.webkitAudioContext; if (!AC) return false; audio = new AC(); }
+    if (audio.state === "suspended") audio.resume();
+    return true;
+  }
+  function bipe() {
+    var o = audio.createOscillator(), g = audio.createGain();
+    o.type = "square"; o.frequency.value = BUZZER.freq; g.gain.value = BUZZER.volume;
+    o.connect(g); g.connect(audio.destination);
+    o.start(); o.stop(audio.currentTime + BUZZER.bipeMs / 1000);
+  }
+  function atualizarSom(tocar) {
+    if (tocar && !buzzTimer) {
+      if (!audioPronto()) return;
+      bipe(); buzzTimer = setInterval(bipe, BUZZER.bipeMs + BUZZER.pausaMs);
+    } else if (!tocar && buzzTimer) { clearInterval(buzzTimer); buzzTimer = null; }
+  }
+  document.addEventListener("pointerdown", audioPronto, { once: true });
+  document.addEventListener("keydown", audioPronto, { once: true });
+  document.addEventListener("touchend", audioPronto, { once: true });               // iOS só libera o som no toque ou clique
+  document.addEventListener("click", audioPronto, { once: true });
+
+  function atualizarUI() {
+    var r = resultado();
+    var cor = r.max === 2 ? "var(--crit)" : r.max === 1 ? "var(--warn)" : "var(--ok)";
+    var ledTxt = !S.ligado ? "apagados" : r.max === 2 ? "vermelho" : r.max === 1 ? "amarelo" : "verde";
+    var buzz = !S.ligado ? "desligado" : (r.max === 2 ? (S.mudo ? "silenciado" : "tocando") : "quieto");
+    $("readout").innerHTML =
+      "<div><span>Modo</span><span>" + NOMES[S.modo] + "</span></div>" +
+      "<div><span>Sensores em foco</span><span>" + ["Temp", "Umi", "Luz", "Ar", "Som"].filter(function (_, i) { return FOCO[S.modo][i]; }).join(" ") + "</span></div>" +
+      "<div><span>LED</span><span><i class='dot' style='background:" + (S.ligado ? cor : "var(--line)") + "'></i>" + ledTxt + "</span></div>" +
+      "<div><span>Buzzer</span><span>" + buzz + "</span></div>";
+    $("bPower").setAttribute("aria-pressed", S.ligado);
+    $("bMute").setAttribute("aria-pressed", S.mudo);
+    $("bModo").textContent = "MODO: " + NOMES[S.modo];
+    // LEDs 3D
+    var r2 = S.ligado ? r.max : -1;
+    LEDS.forEach(function (l, k) { leds[k].emissiveIntensity = r2 === k ? l.aceso : l.apagado; });
+    ledPlaca.emissiveIntensity = S.ligado ? 1.0 : 0.05;
+    atualizarSom(S.ligado && !S.mudo && r.max === 2);
+    desenharLCD();
+  }
+  function acao(a) {
+    if (a === "power") S.ligado = !S.ligado;
+    else if (S.ligado && a === "modo") S.modo = (S.modo + 1) % 4;
+    else if (S.ligado && a === "mute") S.mudo = !S.mudo;
+    else if (a === "luz") { if (emSala) luzesSala(!luzesAcesas); return; }                 // interruptor da sala de aula
+    if (capas[a]) capas[a].userData.press = 1;
+    atualizarUI();
+  }
+  $("bPower").onclick = function () { acao("power"); };
+  $("bModo").onclick = function () { acao("modo"); };
+  $("bMute").onclick = function () { acao("mute"); };
+  // Campos numéricos + sliders das grandezas (sincronizados)
+  function casas(p) { var s = String(p), k = s.indexOf("."); return k < 0 ? 0 : s.length - k - 1; }
+  var campos = {};
+  function definir(g, v) {
+    var f = Math.pow(10, casas(g.passo));
+    v = Math.round(v * f) / f;
+    S.v[g.id] = v;
+    var c = campos[g.id];
+    c.num.value = v; c.sl.value = v;
+    c.txt.textContent = v.toFixed(casas(g.passo)) + " " + g.un;
+  }
+  function confirmar(g) {
+    var c = campos[g.id], bruto = c.num.value.trim(), n = Number(bruto);
+    if (bruto === "" || !isFinite(n)) {
+      c.msg.textContent = "Digite um número entre " + g.min + " e " + g.max + " " + g.un + ".";
+      definir(g, S.v[g.id]);
+      return;
+    }
+    c.msg.textContent = "";
+    if (n < g.min) { n = g.min; c.msg.textContent = "Mínimo é " + g.min + " " + g.un + "; valor ajustado."; }
+    else if (n > g.max) { n = g.max; c.msg.textContent = "Máximo é " + g.max + " " + g.un + "; valor ajustado."; }
+    definir(g, n);
+    atualizarUI();
+  }
+  GRANDEZAS.forEach(function (g) {
+    var d = document.createElement("div"); d.className = "grandeza";
+    d.innerHTML =
+      "<div class='g-topo'><label for='n-" + g.id + "'>" + g.nome + "</label><span id='v-" + g.id + "'></span></div>" +
+      "<div class='g-campo'><input type='number' id='n-" + g.id + "' min='" + g.min + "' max='" + g.max + "' step='" + g.passo + "'><span class='un'>" + g.un + "</span></div>" +
+      "<input type='range' id='s-" + g.id + "' min='" + g.min + "' max='" + g.max + "' step='" + g.passo + "' aria-label='" + g.nome + " (controle deslizante)'>" +
+      "<p class='g-msg' id='m-" + g.id + "' role='status'></p>";
+    $("grandezas").appendChild(d);
+    var c = campos[g.id] = { num: $("n-" + g.id), sl: $("s-" + g.id), txt: $("v-" + g.id), msg: $("m-" + g.id) };
+    c.sl.oninput = function () { c.msg.textContent = ""; definir(g, Number(c.sl.value)); atualizarUI(); };
+    c.num.onchange = function () { confirmar(g); };
+    c.num.onkeydown = function (e) { if (e.key === "Enter") confirmar(g); };
+    definir(g, g.ini);
+  });
+  var aberto = false, abertura = 0;
+  var reduzir = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  $("btnAbrir").onclick = function () {
+    aberto = !aberto;
+    this.setAttribute("aria-pressed", aberto);
+    this.textContent = aberto ? "Fechar tampa" : "Abrir tampa";
+    if (reduzir) abertura = aberto ? 1 : 0;
+  };
+  var emSala = false;
+  $("btnSala").onclick = function () {                                                // alterna entre o aparelho sozinho e dentro da sala de aula
+    emSala = !emSala;
+    this.setAttribute("aria-pressed", emSala);
+    if (!sala) montarSala();
+    sala.visible = emSala;
+    if (emSala) { camera.fov = 45; camera.far = 2500; root.position.x = luzInterna.position.x = SALA.xAparelho; camera.position.set(-100, -30, 300); controls.target.set(-150, -20, 0); controls.maxDistance = 900; }
+    else {
+      if (!luzesAcesas) luzesSala(true);                                              // ao sair da sala as luzes voltam e a luminosidade é restaurada
+      root.position.x = luzInterna.position.x = 0; controls.target.set(0, 0, 0); camera.fov = 32; camera.far = 400; camera.position.set(26, 14, 62).multiplyScalar(distAtual / distIni); controls.maxDistance = Math.max(120, distAtual * 1.3); }
+    camera.updateProjectionMatrix();
+  };
+
+  // Clique nos botões 3D (ignora arrasto)
+  var ray = new THREE.Raycaster(), ptr = new THREE.Vector2(), down = null;
+  cv.addEventListener("pointerdown", function (e) { down = [e.clientX, e.clientY]; });
+  cv.addEventListener("pointerup", function (e) {
+    if (!down || Math.abs(e.clientX - down[0]) + Math.abs(e.clientY - down[1]) > 6) return;
+    var rc = cv.getBoundingClientRect();
+    ptr.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    var hit = ray.intersectObjects(clicaveis, false)[0];
+    if (hit) acao(hit.object.userData.acao);
+  });
+
+  // ---------------------------------------------------------------
+  // Loop
+  // ---------------------------------------------------------------
+  var distIni = camera.position.length(), distAtual = distIni;
+  function ajustar() {
+    var w = stage.clientWidth, h = stage.clientHeight;
+    renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    var d = Math.max(distIni, 52 / camera.aspect);                                    // palco estreito (celular em pé): afasta a câmera para a caixa caber na largura
+    if (!emSala) { camera.position.multiplyScalar(d / distAtual); controls.maxDistance = Math.max(120, d * 1.3); }
+    distAtual = d;
+  }
+  if (window.ResizeObserver) new ResizeObserver(ajustar).observe(stage); else window.addEventListener("resize", ajustar);
+  ajustar();
+
+  function ease(t) { return t * t * (3 - 2 * t); }
+  function tick() {
+    var alvo = aberto ? 1 : 0;
+    abertura += (alvo - abertura) * (reduzir ? 1 : 0.07);
+    if (Math.abs(alvo - abertura) < 0.001) abertura = alvo;
+    hinge.rotation.y = -ease(abertura) * 1.95;
+    if (abertura !== abAnt) { abAnt = abertura; atualizarCabos(); }
+    Object.keys(capas).forEach(function (k) {
+      var c = capas[k]; c.userData.press = (c.userData.press || 0) * 0.85;
+      c.position.z = c.userData.base - c.userData.press * 0.25;
+    });
+    controls.update();
+    renderer.render(scene, camera);
+    requestAnimationFrame(tick);
+  }
+  atualizarUI();
+  tick();
+  if (document.fonts && document.fonts.load) {
+    document.fonts.load("700 46px 'IBM Plex Mono'").then(desenharLCD).catch(function () {});
+  }
+})();
+</script>
