@@ -42,6 +42,12 @@ header p { margin: 0; color: var(--muted); max-width: 62ch; }
 .main { display: grid; grid-template-columns: minmax(0, 1fr) 320px; gap: 16px; align-items: start; }
 .stage { position: relative; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); overflow: hidden; height: clamp(380px, 68vh, 720px); }
 .stage canvas { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.stage canvas.sobre { cursor: pointer; }
+.stage canvas.preso { cursor: grabbing; }
+.dica { position: absolute; left: 0; top: 0; max-width: 250px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--panel); color: var(--fg); box-shadow: 0 4px 14px rgba(0, 0, 0, 0.18); font-size: 12.5px; line-height: 1.4; pointer-events: none; opacity: 0; transition: opacity 0.12s; z-index: 3; }
+.dica.on { opacity: 1; }
+.dica b { display: block; font: 600 12px var(--font-mono); margin-bottom: 2px; }
+.dica em { display: block; margin-top: 4px; font-style: normal; color: var(--accent); }
 .hint { position: absolute; left: 12px; bottom: 10px; font: 12px var(--font-mono); color: var(--muted); pointer-events: none; }
 aside { border: 1px solid var(--line); border-radius: 6px; background: var(--panel); padding: 16px; display: grid; gap: 18px; min-width: 0; }
 h2 { font: 600 11px var(--font-mono); text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); margin: 0 0 8px; }
@@ -102,6 +108,7 @@ ul.parts li { margin-bottom: 2px; }
   <div class="main">
     <div class="stage" id="stage">
       <canvas id="cv" aria-label="Modelo 3D do monitor ambiental"></canvas>
+      <div class="dica" id="dica" role="tooltip"></div>
       <div class="hint">arraste: girar · roda/pinça: zoom · clique nos botões da caixa</div>
     </div>
 
@@ -111,6 +118,7 @@ ul.parts li { margin-bottom: 2px; }
         <div class="row">
           <button id="btnAbrir" aria-pressed="false">Abrir tampa</button>
           <button id="btnSala" aria-pressed="false">Sala de aula</button>
+          <button id="btnDica" aria-pressed="false">Dicas dos componentes</button>
         </div>
       </section>
 
@@ -136,10 +144,10 @@ ul.parts li { margin-bottom: 2px; }
         <h2>Peças na caixa</h2>
         <ul class="parts">
           <li>Frente: LCD 20×4, 3 LEDs, grade do buzzer, 2 botões</li>
-          <li>Topo: janela do LDR e aberturas de ar para o MQ2</li>
+          <li>Topo: janela do LDR e aberturas de ar para o MQ135</li>
           <li>Lateral direita: aberturas do DHT22</li>
           <li>Lateral esquerda: microfone e entrada USB-C</li>
-          <li>Interior: ESP32, DHT22, MQ2, LDR e módulo de som</li>
+          <li>Interior: ESP32, DHT22, MQ135, LDR e módulo de som</li>
         </ul>
         <p class="note">Sugestão de acabamento: impressão 3D em PLA branco fosco, tampa com dobradiça e furos na traseira para fixar na parede. Medidas e posições são uma proposta, ajuste conforme os módulos reais.</p>
       </section>
@@ -277,7 +285,8 @@ ul.parts li { margin-bottom: 2px; }
   function fio(cor, a, b, alt, r, a1, dy, pai) { // fio curvo de a até b, subindo alt e curvando dy de lado (pai: grupo onde o fio fica)
     var m = a.clone().lerp(b, 0.5); m.z += alt; m.y += dy || 0;
     var c = new THREE.CatmullRomCurve3([a, a1 || a.clone().add(V3(0, 0, alt * 0.5)), m, b.clone().add(V3(0, 0, alt * 0.5)), b]);
-    return place(new THREE.Mesh(new THREE.TubeGeometry(c, 20, r || 0.06, 5, false), mFio(cor)), 0, 0, 0, pai);
+    var w = new THREE.Mesh(new THREE.TubeGeometry(c, 20, r || 0.06, 5, false), mFio(cor)); w.userData.fio = true;
+    return place(w, 0, 0, 0, pai);
   }
   function pcbTex(w, h, px, fn) { // plano com furos, trilhas e serigrafia desenhados em canvas
     var c = document.createElement("canvas"); c.width = Math.round(w * px); c.height = Math.round(h * px);
@@ -320,7 +329,7 @@ ul.parts li { margin-bottom: 2px; }
   var micFuro = new THREE.Path(); micFuro.absarc(1.2, 0, 0.45, 0, 6.283, false);          // microfone: furo redondo (y = 1,2, z = 0)
   var ldrFuro = new THREE.Path(); ldrFuro.absarc(-6, 0, 0.5, 0, 6.283, false);              // janela do LDR: furo redondo de 1,0 (x = -6, z = 0)
   var fTopo = [ldrFuro], fDir = [], fEsq = [micFuro, furo(-4.2, -0.2, 0.65, 1.3, 0.3)]; // LDR; DHT22; microfone e USB-C
-  for (i = 0; i < 5; i++) fTopo.push(furo(3, -2.1 + i * 0.95, 4.2, 0.28, 0));              // topo: ar do MQ2, 5 frestas
+  for (i = 0; i < 5; i++) fTopo.push(furo(3, -2.1 + i * 0.95, 4.2, 0.28, 0));              // topo: ar do MQ135, 5 frestas
   for (i = 0; i < 4; i++) fDir.push(furo(0.5, -1.6 + i, 3.4, 0.28, 0));                    // direita: DHT22, 4 frestas
   place(new THREE.Mesh(chapa(-10.7, 10.7, -3.25, 2.85, fTopo, 0.3, eixoTopo), M.shell), 0, 8, 0);        // parede do topo
   place(new THREE.Mesh(chapa(-6.7, 6.7, -3.25, 2.85, fDir, 0.3, eixoLado), M.shell), 11.7, 0, 0);        // parede da direita
@@ -399,7 +408,7 @@ ul.parts li { margin-bottom: 2px; }
   place(new THREE.Mesh(new THREE.TubeGeometry(new THREE.CatmullRomCurve3([V3(-10.6, -4.2, -0.2), V3(-9.8, -4.2, -0.2), V3(-8, -3.8, -0.6), V3(-5.5, -2, -1), V3(-4.7, -1.2, zE + 0.14), V3(-3.9, -1.2, zE + 0.14)]), 30, 0.14, 6, false), mFio("#15191c")), 0, 0, 0); // cabo USB
   var mem = new THREE.Mesh(new THREE.CircleGeometry(0.34, 20), M.dark); mem.rotation.y = -Math.PI / 2; place(mem, -11.705, 1.2, 0); // membrana do microfone, vista pelo furo
 
-  // MQ2 (módulo 2,2 x 3,2): lata de 1,7 voltada para as aberturas do topo
+  // MQ135 (módulo 2,2 x 3,2): lata de 1,7 voltada para as aberturas do topo
   place(box(2.2, 3.2, 0.12, M.blue), 3, 5.4, zb + 0.56);
   espac(2.15, 4, 0.5, 0.12); espac(3.85, 4, 0.5, 0.12); espac(2.15, 6.85, 0.5, 0.12); espac(3.85, 6.85, 0.5, 0.12);
   place(onZ(cyl(0.95, 0.95, 0.12, M.black, 28)), 3, 5.9, zm + 0.06);                  // base plástica
@@ -524,7 +533,7 @@ ul.parts li { margin-bottom: 2px; }
   var cabos = [], abAnt = -1;
   function novoCabo(cor, a, x, y, z) { // (x, y, z) = ponta do terminal na tampa; padrão: conector do módulo I2C
     var o = new THREE.Object3D(); o.position.set(x, y === undefined ? 5.85 : y, z === undefined ? -1.2 : z); lid.add(o);
-    var m = new THREE.Mesh(new THREE.BufferGeometry(), mFio(cor)); root.add(m);
+    var m = new THREE.Mesh(new THREE.BufferGeometry(), mFio(cor)); m.userData.fio = true; root.add(m);
     cabos.push({ m: m, a: a, o: o });
   }
   function atualizarCabos() {
@@ -818,6 +827,78 @@ ul.parts li { margin-bottom: 2px; }
     var hit = ray.intersectObjects(clicaveis, false)[0];
     if (hit) acao(hit.object.userData.acao);
   });
+
+  // ---------------------------------------------------------------
+  // Balões de informação: ao passar o mouse (ou tocar) em um componente, mostra o que ele faz (liga/desliga no botão "Dicas")
+  // Regiões em cm, no sistema da caixa (base) ou da tampa; vale a menor região que contém o ponto atingido pelo raio
+  // ---------------------------------------------------------------
+  var dicasAtivas = false, dica = $("dica"), dicaTimer = null;
+  function estadoLed(k) { var r = resultado(); return S.ligado && r.max === k ? "Aceso agora." : "Apagado agora."; }
+  var DICAS_BASE = [
+    { n: "ESP32 DevKit", b: [-3.9, 2.9, -2.7, 0.3, -2.6, -0.9], t: "Microcontrolador com Wi-Fi e Bluetooth. Lê os sensores, decide o nível (OK, atenção ou crítico) e comanda o LCD, os LEDs e o buzzer." },
+    { n: "Placa base perfurada", b: [-6, 8, -5.5, 3.5, -2.6, -2.2], t: "Placa onde o ESP32 é encaixado. Tem os barramentos de 3V3 (alimentação) e GND (terra) que servem a todos os módulos." },
+    { n: "Sensor de qualidade do ar MQ135", b: [1.9, 4.1, 3.8, 7.0, -2.6, -1.1], t: "Mede a qualidade do ar (amônia, NOx, benzeno, fumaça e CO₂) em ppm. Fica sob as frestas do topo, por onde o ar entra." },
+    { n: "Módulo do LDR", b: [-7.6, -4.4, 4.8, 6.2, -2.6, -1.1], t: "Circuito que lê o sensor de luz e entrega o valor ao ESP32 (com comparador LM393 e trimpot de ajuste)." },
+    { n: "Sensor LDR", b: [-6.8, -5.2, 7.3, 8.3, -0.8, 0.8], t: "Resistor que muda com a luz. Sai 1,5 mm pelo furo do topo, para medir só a luz de fora." },
+    { n: "Módulo de som", b: [-10.5, -8.7, -0.4, 2.9, -2.6, -1.1], t: "Trata o sinal do microfone para o ESP32 medir o ruído da sala (em dB)." },
+    { n: "Microfone", b: [-12, -11, 0.5, 1.9, -0.8, 0.8], t: "Cápsula alinhada ao furo da lateral esquerda; capta o ruído da sala." },
+    { n: "Sensor DHT22", b: [10.1, 11.5, -0.7, 1.7, -2.4, 1.6], t: "Mede temperatura e umidade do ar. O corpo fica voltado para as aberturas da lateral direita." },
+    { n: "Entrada USB-C", b: [-11.9, -10.3, -5.3, -3.1, -1.3, 0.9], t: "Alimenta o aparelho e permite programar o ESP32, por um cabo até o micro-USB da placa." }
+  ];
+  var DICAS_TAMPA = [
+    { n: "Display LCD 20×4", b: [-9.1, 3.1, -0.9, 5.9, -1.4, 1.3], t: "Mostra temperatura, umidade, ar, som, luz e o status calculado pelo firmware. Ligado por I2C.", e: function () { return S.ligado ? "Status agora: " + resultado().st : "Desligado."; } },
+    { n: "LED verde", b: [7.1, 8.5, 3.7, 5.1, -1.4, 1.3], t: "Acende quando tudo está dentro do esperado (nível OK).", e: function () { return estadoLed(0); } },
+    { n: "LED amarelo", b: [7.1, 8.5, 2.0, 3.4, -1.4, 1.3], t: "Acende quando alguma grandeza sai do ideal (nível de atenção).", e: function () { return estadoLed(1); } },
+    { n: "LED vermelho", b: [7.1, 8.5, 0.3, 1.7, -1.4, 1.3], t: "Acende quando alguma grandeza chega ao nível extremo (crítico). O buzzer toca junto.", e: function () { return estadoLed(2); } },
+    { n: "Buzzer", b: [6.7, 8.9, -3.8, -1.6, -1.4, 1.3], t: "Toca no nível crítico. O som sai pelos 19 furinhos da tampa. O botão MUTE o silencia.", e: function () { var r = resultado(); return !S.ligado ? "Desligado." : r.max === 2 ? (S.mudo ? "Silenciado agora." : "Tocando agora.") : "Quieto agora."; } },
+    { n: "Botão POWER", b: [-7.2, -4.8, -5.4, -3.0, -1.4, 1.3], t: "Liga e desliga o aparelho. Clique nele no 3D ou no painel.", e: function () { return S.ligado ? "Ligado." : "Desligado."; } },
+    { n: "Botão MUTE", b: [-1.2, 1.2, -5.4, -3.0, -1.4, 1.3], t: "Silencia o buzzer (o LED continua avisando). Clique nele no 3D ou no painel.", e: function () { return S.mudo ? "Mudo ligado." : "Mudo desligado."; } }
+  ];
+  var DICA_FIO = { n: "Fio de ligação", t: "Liga os módulos ao ESP32 (sinal, 3V3 e GND). Os fios da tampa acompanham a abertura." };
+  var DICA_CAIXA = { n: "Caixa", t: "Caixa de parede de 24 × 16 × 6,5 cm, com aberturas para ar, luz, som e USB-C." };
+  var DICA_TAMPA = { n: "Tampa", t: "Tampa com dobradiça. Leva o LCD, os LEDs, o buzzer e os botões." };
+  function achar(lista, p) {
+    var melhor = null, vm = 1e9;
+    lista.forEach(function (d) {
+      var b = d.b;
+      if (p.x < b[0] || p.x > b[1] || p.y < b[2] || p.y > b[3] || p.z < b[4] || p.z > b[5]) return;
+      var v = (b[1] - b[0]) * (b[3] - b[2]) * (b[5] - b[4]);
+      if (v < vm) { vm = v; melhor = d; }
+    });
+    return melhor;
+  }
+  function identificar(h) {
+    var o = h.object, naTampa = false;
+    if (o.userData.fio) return DICA_FIO;
+    for (var q = o; q; q = q.parent) if (q === lid) { naTampa = true; break; }
+    var p = (naTampa ? lid : root).worldToLocal(h.point.clone());
+    return achar(naTampa ? DICAS_TAMPA : DICAS_BASE, p) || (naTampa ? DICA_TAMPA : DICA_CAIXA);
+  }
+  function esconderDica() { dica.classList.remove("on"); cv.classList.remove("sobre"); }
+  function mostrarDica(e) {
+    if (!dicasAtivas) { esconderDica(); return; }
+    var rc = cv.getBoundingClientRect();
+    ptr.set(((e.clientX - rc.left) / rc.width) * 2 - 1, -((e.clientY - rc.top) / rc.height) * 2 + 1);
+    ray.setFromCamera(ptr, camera);
+    var h = ray.intersectObject(root, true)[0];
+    var d = h && identificar(h);
+    if (!d) { esconderDica(); return; }
+    dica.innerHTML = "<b>" + d.n + "</b>" + d.t + (d.e ? "<em>" + d.e() + "</em>" : "");
+    var x = e.clientX - rc.left + 14, y = e.clientY - rc.top + 14;
+    x = Math.max(4, Math.min(x, rc.width - dica.offsetWidth - 4)); y = Math.max(4, Math.min(y, rc.height - dica.offsetHeight - 4));
+    dica.style.transform = "translate(" + x + "px," + y + "px)";
+    dica.classList.add("on"); cv.classList.add("sobre");                               // mãozinha com o dedo indicador sobre um componente
+  }
+  cv.addEventListener("pointermove", function (e) { if (e.pointerType === "mouse" && !e.buttons) mostrarDica(e); else if (e.pointerType === "mouse") esconderDica(); });
+  cv.addEventListener("pointerleave", esconderDica);
+  cv.addEventListener("pointerup", function (e) {                                       // toque: mostra o balão por 4 s
+    if (e.pointerType === "mouse" || !down || Math.abs(e.clientX - down[0]) + Math.abs(e.clientY - down[1]) > 6) return;
+    mostrarDica(e); clearTimeout(dicaTimer); dicaTimer = setTimeout(esconderDica, 4000);
+  });
+  cv.addEventListener("pointerdown", function () { cv.classList.add("preso"); esconderDica(); });   // segurando: mãozinha fechada
+  window.addEventListener("pointerup", function () { cv.classList.remove("preso"); });
+  window.addEventListener("pointercancel", function () { cv.classList.remove("preso"); });
+  $("btnDica").onclick = function () { dicasAtivas = !dicasAtivas; this.setAttribute("aria-pressed", dicasAtivas); if (!dicasAtivas) esconderDica(); };
 
   // ---------------------------------------------------------------
   // Loop
