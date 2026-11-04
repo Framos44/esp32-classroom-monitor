@@ -96,7 +96,7 @@ ul.parts li { margin-bottom: 2px; }
 <div class="wrap">
   <header>
     <h1>Monitor SIMAEP</h1>
-    <p>Proposta de protótipo com acabamento: caixa de parede de 24 × 16 × 6,5 cm que abriga o ESP32, os sensores, o display, os LEDs e os três botões do firmware. Arraste para girar e clique nos botões da caixa para testar.</p>
+    <p>Proposta de protótipo com acabamento: caixa de parede de 24 × 16 × 6,5 cm que abriga o ESP32, os sensores, o display, os LEDs e os dois botões do firmware. Arraste para girar e clique nos botões da caixa para testar.</p>
   </header>
 
   <div class="main">
@@ -123,7 +123,6 @@ ul.parts li { margin-bottom: 2px; }
         <h2>Botões da caixa</h2>
         <div class="row">
           <button id="bPower" aria-pressed="true">POWER</button>
-          <button id="bModo">MODO</button>
           <button id="bMute" aria-pressed="false">MUTE</button>
         </div>
       </section>
@@ -136,7 +135,7 @@ ul.parts li { margin-bottom: 2px; }
       <section>
         <h2>Peças na caixa</h2>
         <ul class="parts">
-          <li>Frente: LCD 20×4, 3 LEDs, grade do buzzer, 3 botões</li>
+          <li>Frente: LCD 20×4, 3 LEDs, grade do buzzer, 2 botões</li>
           <li>Topo: janela do LDR e aberturas de ar para o MQ2</li>
           <li>Lateral direita: aberturas do DHT22</li>
           <li>Lateral esquerda: microfone e entrada USB-C</li>
@@ -155,15 +154,6 @@ ul.parts li { margin-bottom: 2px; }
   // ---------------------------------------------------------------
   // Estado que espelha o firmware (sketch.ino)
   // ---------------------------------------------------------------
-  var NOMES = ["GERAL", "TERMICO", "SENSORIAL", "AR"];
-  var SIGLAS = ["GER", "TER", "SEN", "AR "];
-  // colunas: temp, umidade, luz, ar, som
-  var FOCO = [
-    [1, 1, 1, 1, 1],
-    [1, 1, 0, 0, 0],
-    [0, 0, 1, 0, 1],
-    [0, 0, 0, 1, 0]
-  ];
   // Grandezas digitáveis: faixa, passo, unidade e valor inicial (ini)
   var GRANDEZAS = [
     { id: "t",   nome: "Temperatura",  un: "°C",  min: -10, max: 60,   passo: 0.5, ini: 24 },
@@ -182,7 +172,7 @@ ul.parts li { margin-bottom: 2px; }
   ];
   // Sala de aula (cm): meia largura, parede da frente (atrás do aparelho), parede do fundo, piso e teto
   var SALA = { meiaLargura: 350, zFrente: -3.3, zFundo: 796.7, chao: -150, teto: 150, xAparelho: -270 };
-  var S = { ligado: true, modo: 0, mudo: false, v: {} };
+  var S = { ligado: true, mudo: false, v: {} };
 
   function categorias() {
     var v = S.v;
@@ -201,7 +191,6 @@ ul.parts li { margin-bottom: 2px; }
     var a = c.ar === "Extremo" ? 2 : c.ar === "Ruim" ? 1 : 0;
     var s = c.som === "Alto" ? 2 : c.som === "Moderado" ? 1 : 0;
     var arr = [t, u, l, a, s];
-    for (var i = 0; i < 5; i++) if (!FOCO[S.modo][i]) arr[i] = 0;
     return arr;
   }
   function resultado() {
@@ -516,7 +505,7 @@ ul.parts li { margin-bottom: 2px; }
 
   // Botões
   var clicaveis = [];
-  var botoes = [["POWER", -8.5, "#d23b32", "power"], ["MODO", -4.5, "#1f6fd1", "modo"], ["MUTE", -0.5, "#d4961a", "mute"]];
+  var botoes = [["POWER", -6, "#15191c", "power"], ["MUTE", 0, "#3c4349", "mute"]];
   var capas = {};
   botoes.forEach(function (b) {
     place(onZ(cyl(1.12, 1.12, 0.18, M.bezel, 32)), b[1], -4.2, fz + 0.09, lid);
@@ -554,11 +543,11 @@ ul.parts li { margin-bottom: 2px; }
   var cinza = "#15191c";
   fio(cinza, V3(7.95, 4.4, -1.2), V3(7.95, 2.7, -1.2), -0.5, 0.05, null, 0, lid); fio(cinza, V3(7.95, 2.7, -1.2), V3(7.95, 1, -1.2), -0.5, 0.05, null, 0, lid);
   fio(cinza, V3(7.95, 1, -1.2), V3(8.1, -2.7, -1.2), -0.7, 0.05, null, 0, lid);       // cátodos dos LEDs até o terminal negativo do buzzer
-  fio(cinza, V3(-8.25, -4.2, -0.95), V3(-4.25, -4.2, -0.95), -0.6, 0.05, null, 0, lid); fio(cinza, V3(-4.25, -4.2, -0.95), V3(-0.25, -4.2, -0.95), -0.6, 0.05, null, 0, lid); // terra dos botões
+  fio(cinza, V3(-5.75, -4.2, -0.95), V3(0.25, -4.2, -0.95), -0.6, 0.05, null, 0, lid); // terra dos botões
   novoCabo("#2e9e55", pad(7, false), 7.65, 4.4); novoCabo("#e0aa00", pad(8, false), 7.65, 2.7); novoCabo("#e0762a", pad(9, false), 7.65, 1); // LEDs verde, amarelo e vermelho
   novoCabo("#e8eaec", pad(10, false), 7.5, -2.7); novoCabo(cinza, pad(6, false), 8.1, -2.7);                                              // buzzer: sinal e terra
-  novoCabo("#8a5cd6", pad(11, false), -8.75, -4.2, -0.95); novoCabo("#d65cb0", pad(12, false), -4.75, -4.2, -0.95); novoCabo("#8a6a4a", pad(14, false), -0.75, -4.2, -0.95); // POWER, MODO e MUTE
-  novoCabo(cinza, pad(0, false), -0.25, -4.2, -0.95);                                                                                     // terra dos botões
+  novoCabo("#8a5cd6", pad(11, false), -6.25, -4.2, -0.95); novoCabo("#8a6a4a", pad(14, false), -0.25, -4.2, -0.95); // POWER e MUTE
+  novoCabo(cinza, pad(0, false), 0.25, -4.2, -0.95);                                                                                     // terra dos botões
   atualizarCabos();
 
   // ---------------------------------------------------------------
@@ -689,7 +678,7 @@ ul.parts li { margin-bottom: 2px; }
     var r = resultado(), c = r.c;
     var somCurto = c.som === "Moderado" ? "Medio" : c.som;
     var l = [
-      "T:" + c.t.toFixed(1) + "C U:" + c.u.toFixed(1) + "% " + SIGLAS[S.modo],
+      "T:" + c.t.toFixed(1) + "C U:" + c.u.toFixed(1) + "%",
       "Ar:" + c.ar + " Som:" + somCurto,
       "Luz:" + c.luz + (S.mudo ? " MUDO" : ""),
       "ST:" + r.st
@@ -739,13 +728,10 @@ ul.parts li { margin-bottom: 2px; }
     var ledTxt = !S.ligado ? "apagados" : r.max === 2 ? "vermelho" : r.max === 1 ? "amarelo" : "verde";
     var buzz = !S.ligado ? "desligado" : (r.max === 2 ? (S.mudo ? "silenciado" : "tocando") : "quieto");
     $("readout").innerHTML =
-      "<div><span>Modo</span><span>" + NOMES[S.modo] + "</span></div>" +
-      "<div><span>Sensores em foco</span><span>" + ["Temp", "Umi", "Luz", "Ar", "Som"].filter(function (_, i) { return FOCO[S.modo][i]; }).join(" ") + "</span></div>" +
       "<div><span>LED</span><span><i class='dot' style='background:" + (S.ligado ? cor : "var(--line)") + "'></i>" + ledTxt + "</span></div>" +
       "<div><span>Buzzer</span><span>" + buzz + "</span></div>";
     $("bPower").setAttribute("aria-pressed", S.ligado);
     $("bMute").setAttribute("aria-pressed", S.mudo);
-    $("bModo").textContent = "MODO: " + NOMES[S.modo];
     // LEDs 3D
     var r2 = S.ligado ? r.max : -1;
     LEDS.forEach(function (l, k) { leds[k].emissiveIntensity = r2 === k ? l.aceso : l.apagado; });
@@ -755,14 +741,12 @@ ul.parts li { margin-bottom: 2px; }
   }
   function acao(a) {
     if (a === "power") S.ligado = !S.ligado;
-    else if (S.ligado && a === "modo") S.modo = (S.modo + 1) % 4;
     else if (S.ligado && a === "mute") S.mudo = !S.mudo;
     else if (a === "luz") { if (emSala) luzesSala(!luzesAcesas); return; }                 // interruptor da sala de aula
     if (capas[a]) capas[a].userData.press = 1;
     atualizarUI();
   }
   $("bPower").onclick = function () { acao("power"); };
-  $("bModo").onclick = function () { acao("modo"); };
   $("bMute").onclick = function () { acao("mute"); };
   // Campos numéricos + sliders das grandezas (sincronizados)
   function casas(p) { var s = String(p), k = s.indexOf("."); return k < 0 ? 0 : s.length - k - 1; }
