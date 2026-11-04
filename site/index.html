@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>SIMAEP - Monitoramento ambiental para escolas públicas</title>
+<meta name="description" content="SIMAEP é um projeto acadêmico que mede temperatura, ar, ruído e luz da sala de aula. Conheça o protótipo e dê sua opinião.">
+<meta name="theme-color" content="#0b2a4a">
+
+<!-- ============================================================
+     CONFIGURAÇÃO: EDITE AQUI (único lugar que você precisa mexer)
+     ============================================================ -->
+<script>
+  const CONFIG = {
+    // 1) Link da página do modelo 3D
+    MODEL_3D_URL: "https://microcontrolador.papaixinho.com.br/3d/",
+
+    // 2) Link do Google Forms (o link de "Enviar" > ícone de link, termina em /viewform)
+    //    Enquanto estiver vazio, os botões de pesquisa mostram "em breve".
+    FORMS_URL: "https://forms.gle/YkU9QKmfA5a7cBHw9",
+
+    // 3) Mostrar o formulário embutido na página? (true/false). Precisa de FORMS_URL.
+    EMBED_FORM: false,
+
+    // 4) Imagem de prévia do modelo 3D (print). Ex.: "img/modelo-3d.png". Vazio = espaço reservado.
+    PREVIEW_IMAGE: "imagens/simaep-painel.png",
+    PREVIEW_ALT: "Print do modelo 3D da caixa do protótipo SIMAEP, visto de frente.",
+
+    // 5) Contato (e-mail). Vazio = o bloco de contato não aparece.
+    CONTACT_EMAIL: ""
+  };
+</script>
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<!-- Fonte por CDN. Se falhar, o navegador usa a fonte do sistema (veja font-family no CSS). -->
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+
+<style>
+  :root{
+    --navy:#0b2a4a;
+    --navy-2:#123d6b;
+    --blue:#1553b8;
+    --blue-2:#2f7de1;
+    --sky:#e8f1fc;
+    --sky-2:#f4f8fd;
+    --ink:#10253d;
+    --muted:#4a5f77;
+    --line:#d5e2f2;
+    --ok:#0f6b3a;
+    --ok-bg:#e3f4ea;
+    --wip:#8a5a00;
+    --wip-bg:#fdf0d5;
+    --next:#2d4a73;
+    --next-bg:#e6ecf5;
+    --radius:16px;
+    --maxw:1080px;
+    --font:"Inter",system-ui,-apple-system,"Segoe UI",Roboto,Arial,sans-serif;
+  }
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;font-family:var(--font);color:var(--ink);background:#fff;line-height:1.65;font-size:1.0625rem;-webkit-text-size-adjust:100%}
+  img,svg{max-width:100%;display:block}
+  a{color:var(--blue)}
+  h1,h2,h3{line-height:1.2;margin:0;color:var(--navy)}
+  p{margin:0 0 1rem}
+
+  .skip{position:absolute;left:-999px;top:0;background:#fff;color:var(--navy);padding:.7rem 1rem;z-index:100;border-radius:0 0 8px 0;font-weight:600}
+  .skip:focus{left:0}
+  :focus-visible{outline:3px solid #ffbf47;outline-offset:3px;border-radius:6px}
+
+  .wrap{width:100%;max-width:var(--maxw);margin:0 auto;padding:0 20px}
+  section{padding:56px 0}
+  .eyebrow{display:inline-block;font-size:.8rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--blue);margin-bottom:.6rem}
+  h2{font-size:clamp(1.55rem,5vw,2.2rem);margin-bottom:1rem}
+  .lead{font-size:1.15rem;color:var(--muted);max-width:62ch}
+  .alt{background:var(--sky-2)}
+
+  /* Botões */
+  .btn{display:inline-flex;align-items:center;justify-content:center;gap:.5rem;min-height:48px;padding:.8rem 1.4rem;border-radius:999px;font-weight:700;font-size:1rem;text-decoration:none;border:2px solid transparent;cursor:pointer;font-family:inherit;transition:transform .15s ease,background .15s ease}
+  .btn:hover{transform:translateY(-1px)}
+  .btn-primary{background:var(--blue);color:#fff}
+  .btn-primary:hover{background:#0f4397}
+  .btn-light{background:#fff;color:var(--navy)}
+  .btn-ghost{background:transparent;color:#fff;border-color:rgba(255,255,255,.7)}
+  .btn-ghost:hover{background:rgba(255,255,255,.12)}
+  .btn-lg{min-height:58px;font-size:1.1rem;padding:1rem 2rem}
+  .btn[aria-disabled="true"]{background:#8fa3ba;color:#fff;cursor:not-allowed;transform:none}
+
+  /* Hero */
+  .hero{background:radial-gradient(1200px 500px at 80% -10%,#1d5fd1 0%,transparent 60%),linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff;padding:64px 0 72px}
+  .hero h1{color:#fff;font-size:clamp(2.8rem,12vw,5rem);font-weight:800;letter-spacing:-.02em}
+  .hero .full{font-size:.95rem;color:#cfe0f5;margin:.4rem 0 1.4rem;font-weight:500}
+  .hero .tagline{font-size:clamp(1.2rem,4vw,1.6rem);font-weight:600;max-width:30ch;margin-bottom:2rem;color:#fff}
+  .hero .actions{display:flex;flex-wrap:wrap;gap:12px}
+  .hero .badge{display:inline-block;margin-top:2rem;font-size:.85rem;color:#cfe0f5;border:1px solid rgba(255,255,255,.35);border-radius:999px;padding:.3rem .9rem}
+
+  /* Cards genéricos */
+  .grid{display:grid;gap:18px}
+  .card{background:#fff;border:1px solid var(--line);border-radius:var(--radius);padding:22px}
+  .card h3{font-size:1.1rem;margin:.9rem 0 .4rem}
+  .card p{color:var(--muted);margin:0}
+  .icon{width:48px;height:48px;border-radius:12px;background:var(--sky);display:grid;place-items:center;color:var(--blue)}
+  .icon svg{width:26px;height:26px}
+
+  /* Problemática */
+  .problem-list{list-style:none;padding:0;margin:1.5rem 0 0;display:grid;gap:14px}
+  .problem-list li{background:#fff;border-left:5px solid var(--blue-2);border-radius:10px;padding:16px 18px;border:1px solid var(--line);border-left-width:5px}
+  .problem-list strong{color:var(--navy)}
+  .note{font-size:.92rem;color:var(--muted);margin-top:1.2rem}
+
+  /* Passos */
+  .steps{list-style:none;padding:0;margin:2rem 0 0;display:grid;gap:0}
+  .step{position:relative;display:grid;grid-template-columns:48px 1fr;gap:16px;padding-bottom:28px}
+  .step:last-child{padding-bottom:0}
+  .step::before{content:"";position:absolute;left:23px;top:50px;bottom:0;width:2px;background:var(--line)}
+  .step:last-child::before{display:none}
+  .num{width:48px;height:48px;border-radius:50%;background:var(--blue);color:#fff;font-weight:800;display:grid;place-items:center;font-size:1.1rem;z-index:1}
+  .step h3{font-size:1.1rem;margin-bottom:.3rem}
+  .step p{color:var(--muted);margin:0}
+  .step .tag{display:inline-block;margin-top:.5rem}
+
+  /* Chips de status */
+  .chip{display:inline-block;font-size:.78rem;font-weight:700;border-radius:999px;padding:.2rem .7rem;white-space:nowrap}
+  .chip.ok{background:var(--ok-bg);color:var(--ok)}
+  .chip.wip{background:var(--wip-bg);color:var(--wip)}
+  .chip.next{background:var(--next-bg);color:var(--next)}
+
+  .subhead{font-size:1.25rem;margin:3rem 0 1rem}
+  .parts{list-style:none;padding:0;margin:0;display:grid;gap:12px}
+  .parts li{background:#fff;border:1px solid var(--line);border-radius:12px;padding:14px 16px;display:flex;flex-direction:column;gap:.2rem}
+  .parts .name{font-weight:700;color:var(--navy)}
+  .parts .desc{color:var(--muted);font-size:.95rem}
+
+  .status-table{width:100%;border-collapse:collapse;background:#fff;border:1px solid var(--line);border-radius:12px;overflow:hidden}
+  .status-table th,.status-table td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line);vertical-align:top;font-size:.97rem}
+  .status-table th{background:var(--sky);color:var(--navy);font-size:.85rem;text-transform:uppercase;letter-spacing:.05em}
+  .status-table tr:last-child td{border-bottom:0}
+
+  /* Demonstração */
+  .demo{background:linear-gradient(160deg,var(--navy) 0%,var(--navy-2) 100%);color:#fff}
+  .demo h2{color:#fff}
+  .demo .lead{color:#d6e5f7}
+  .demo-box{display:grid;gap:28px;align-items:center}
+  .preview{border-radius:var(--radius);overflow:hidden;border:1px solid rgba(255,255,255,.25);background:#0e3459;aspect-ratio:16/10}
+  .preview img{width:100%;height:100%;object-fit:cover}
+  .placeholder{width:100%;height:100%;display:grid;place-items:center;text-align:center;padding:20px;color:#cfe0f5;border:2px dashed rgba(255,255,255,.4);border-radius:var(--radius);font-size:.95rem}
+  .placeholder svg{width:56px;height:56px;margin:0 auto .6rem;opacity:.8}
+  .demo ul{padding-left:1.2rem;margin:0 0 1.6rem;color:#e7f0fb}
+  .demo li{margin-bottom:.4rem}
+  .demo .small{font-size:.9rem;color:#cfe0f5;margin:1rem 0 0}
+
+  /* Pesquisa */
+  .survey-box{background:var(--sky);border:1px solid var(--line);border-radius:24px;padding:28px 22px;text-align:center}
+  .survey-box .lead{margin:0 auto 1.5rem}
+  .soon{font-size:.92rem;color:var(--muted);margin-top:.8rem}
+  details.embed{margin-top:2rem;text-align:left}
+  details.embed summary{cursor:pointer;font-weight:600;color:var(--blue);padding:.6rem 0}
+  details.embed iframe{width:100%;height:760px;border:1px solid var(--line);border-radius:12px;background:#fff;margin-top:.8rem}
+
+  /* Rodapé */
+  footer{background:var(--navy);color:#d6e5f7;padding:44px 0;font-size:.97rem}
+  footer h2{font-size:1.1rem;color:#fff;margin-bottom:.8rem}
+  footer .cols{display:grid;gap:26px}
+  footer ul{list-style:none;padding:0;margin:0}
+  footer li{margin-bottom:.3rem}
+  footer a{color:#fff}
+  footer .fine{margin-top:2rem;font-size:.85rem;color:#a9c0dc;border-top:1px solid rgba(255,255,255,.18);padding-top:1.2rem}
+
+  /* Animações ao rolar (só se JS estiver ativo) */
+  .js .reveal{opacity:0;transform:translateY(18px);transition:opacity .6s ease,transform .6s ease}
+  .js .reveal.in{opacity:1;transform:none}
+  @media (prefers-reduced-motion:reduce){
+    html{scroll-behavior:auto}
+    .js .reveal{opacity:1;transform:none;transition:none}
+    .btn{transition:none}
+  }
+
+  /* Telas maiores */
+  @media (min-width:720px){
+    section{padding:80px 0}
+    .grid.cols-2{grid-template-columns:repeat(2,1fr)}
+    .grid.cols-4{grid-template-columns:repeat(2,1fr)}
+    .parts{grid-template-columns:repeat(2,1fr)}
+    .demo-box{grid-template-columns:1.1fr 1fr;gap:48px}
+    .survey-box{padding:48px}
+    footer .cols{grid-template-columns:repeat(3,1fr)}
+  }
+  @media (min-width:960px){
+    .grid.cols-4{grid-template-columns:repeat(4,1fr)}
+    .parts{grid-template-columns:repeat(3,1fr)}
+    .steps{grid-template-columns:repeat(4,1fr);gap:20px}
+    .step{grid-template-columns:1fr;padding-bottom:0;gap:12px}
+    .step::before{left:48px;right:-20px;top:23px;bottom:auto;width:auto;height:2px}
+  }
+</style>
+</head>
+
+<body>
+<script>document.documentElement.classList.add('js');</script>
+<a class="skip" href="#proposta">Pular para o conteúdo</a>
+
+<!-- ======================= 1. TOPO (HERO) ======================= -->
+<header class="hero">
+  <div class="wrap">
+    <h1>SIMAEP</h1>
+    <p class="full">Sistema Inteligente de Monitoramento Ambiental para Escolas Públicas</p>
+    <p class="tagline">Calor, ar, barulho e luz da sala de aula, medidos e transformados em dados.</p>
+    <div class="actions">
+      <a class="btn btn-light" href="#demo">Ver demonstração</a>
+      <a class="btn btn-ghost" href="#pesquisa" data-forms-link>Responder pesquisa</a>
+    </div>
+    <span class="badge">Projeto acadêmico em desenvolvimento</span>
+  </div>
+</header>
+
+<main>
+<!-- ======================= 2. PROPOSTA ======================= -->
+<section id="proposta" aria-labelledby="t-proposta">
+  <div class="wrap reveal">
+    <span class="eyebrow">O projeto</span>
+    <h2 id="t-proposta">Um aparelho pequeno para entender a sala de aula</h2>
+    <p class="lead">O SIMAEP é um projeto de Ciência da Computação: um dispositivo pensado para ficar na parede da sala, que mede temperatura, umidade, qualidade do ar, luminosidade e ruído.</p>
+    <p class="lead">Os números aparecem na hora e podem virar um histórico para a direção da escola usar ao pedir melhorias. É feito para escolas públicas e para quem convive nelas: professores, gestores, estudantes e famílias.</p>
+  </div>
+</section>
+
+<!-- ======================= 3. PROBLEMÁTICA ======================= -->
+<section id="problema" class="alt" aria-labelledby="t-problema">
+  <div class="wrap reveal">
+    <span class="eyebrow">O problema</span>
+    <h2 id="t-problema">Quando a sala incomoda, falta como provar</h2>
+    <p class="lead">Sala quente, abafada, barulhenta ou mal iluminada é uma queixa comum. O difícil é mostrar isso com clareza. Sem medições, o pedido de melhoria vira opinião, e opinião é fácil de adiar.</p>
+    <ul class="problem-list">
+      <li><strong>Calor e ar parado:</strong> pesquisas associam temperatura alta e pouca ventilação a mais cansaço e pior desempenho nos estudos.</li>
+      <li><strong>Ruído:</strong> atrapalha a atenção de todos e pode ser especialmente pesado para alunos com sensibilidade sensorial, como alguns estudantes com TEA.</li>
+      <li><strong>Luz inadequada:</strong> sala escura ou com muito reflexo dificulta ler e escrever.</li>
+      <li><strong>Sem registro:</strong> o que a escola sente no dia a dia raramente fica guardado em números que ela possa apresentar.</li>
+    </ul>
+    <p class="note">Base do projeto: estudos sobre calor e cognição (Park et al.), padrões internacionais de ventilação (ASHRAE) e a norma brasileira de acústica (NBR 10.152). Esta página é um resumo; as referências completas estão no referencial teórico do trabalho.</p>
+  </div>
+</section>
+
+<!-- ======================= 4. IDEIA DE SOLUÇÃO ======================= -->
+<section id="solucao" aria-labelledby="t-solucao">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">A ideia</span>
+      <h2 id="t-solucao">Medir, avisar e guardar o histórico</h2>
+      <p class="lead">Em vez de depender da sensação de cada pessoa, o SIMAEP acompanha a sala o tempo todo.</p>
+    </div>
+    <div class="grid cols-4" style="margin-top:2rem">
+      <article class="card reveal">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/></svg>
+        </div>
+        <h3>Mede o que importa</h3>
+        <p>Temperatura, umidade, qualidade do ar, luz e ruído da sala.</p>
+      </article>
+      <article class="card reveal">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg>
+        </div>
+        <h3>Avisa na hora</h3>
+        <p>Mostra os valores no display e usa LEDs e som para sinalizar quando algo foge do normal.</p>
+      </article>
+      <article class="card reveal">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg>
+        </div>
+        <h3>Guarda o histórico</h3>
+        <p>Os dados seguem para um painel na web, onde dá para acompanhar a evolução ao longo do tempo.</p>
+      </article>
+      <article class="card reveal">
+        <div class="icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        </div>
+        <h3>Apoia pedidos de melhoria</h3>
+        <p>Com números em mãos, a direção pode justificar reformas e ajustes na estrutura da sala.</p>
+      </article>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 5. COMO FUNCIONA O PROTÓTIPO ======================= -->
+<section id="como-funciona" class="alt" aria-labelledby="t-como">
+  <div class="wrap">
+    <div class="reveal">
+      <span class="eyebrow">O protótipo</span>
+      <h2 id="t-como">Como funciona, passo a passo</h2>
+      <p class="lead">O protótipo foi montado e testado em um simulador de circuitos eletrônicos (Wokwi).</p>
+    </div>
+
+    <ol class="steps">
+      <li class="step reveal">
+        <span class="num" aria-hidden="true">1</span>
+        <div>
+          <h3>Sensores coletam</h3>
+          <p>Cinco medidas da sala: temperatura, umidade, qualidade do ar, luz e ruído.</p>
+        </div>
+      </li>
+      <li class="step reveal">
+        <span class="num" aria-hidden="true">2</span>
+        <div>
+          <h3>O microcontrolador processa</h3>
+          <p>Um chip ESP32 lê os sensores e compara os valores com limites definidos para o projeto.</p>
+        </div>
+      </li>
+      <li class="step reveal">
+        <span class="num" aria-hidden="true">3</span>
+        <div>
+          <h3>Os alertas aparecem na sala</h3>
+          <p>Um display mostra os valores. LEDs verde, amarelo e vermelho e um buzzer sinalizam a situação.</p>
+        </div>
+      </li>
+      <li class="step reveal">
+        <span class="num" aria-hidden="true">4</span>
+        <div>
+          <h3>Os dados vão para o painel</h3>
+          <p>Via Wi-Fi, as leituras são enviadas a um servidor e exibidas em um painel web.</p>
+        </div>
+      </li>
+    </ol>
+
+    <h3 class="subhead reveal">Componentes do protótipo</h3>
+    <ul class="parts reveal">
+      <li><span class="name">ESP32</span><span class="desc">Microcontrolador com Wi-Fi: o "cérebro" do aparelho.</span></li>
+      <li><span class="name">DHT22</span><span class="desc">Sensor de temperatura e umidade.</span></li>
+      <li><span class="name">LDR</span><span class="desc">Sensor de luminosidade.</span></li>
+      <li><span class="name">MQ2</span><span class="desc">Sensor de gases, usado no simulador no lugar do MQ135 (qualidade do ar).</span></li>
+      <li><span class="name">Potenciômetro</span><span class="desc">Simula o sensor de ruído no simulador, que não tem microfone.</span></li>
+      <li><span class="name">Display LCD 20x4</span><span class="desc">Mostra as leituras na própria sala.</span></li>
+      <li><span class="name">LEDs e buzzer</span><span class="desc">Sinalização visual (verde, amarelo, vermelho) e sonora.</span></li>
+      <li><span class="name">Painel web</span><span class="desc">Servidor com PHP e MySQL que recebe e exibe os dados.</span></li>
+    </ul>
+
+    <h3 class="subhead reveal">Em que ponto estamos</h3>
+    <!-- EDITE OS STATUS: troque a classe "ok" (funciona), "wip" (em desenvolvimento) ou "next" (próximo passo) e o texto do chip. -->
+    <div class="reveal" style="overflow-x:auto">
+      <table class="status-table">
+        <thead><tr><th scope="col">Etapa</th><th scope="col">Situação</th></tr></thead>
+        <tbody>
+          <tr><td>Leitura dos cinco sensores e exibição no display</td><td><span class="chip ok">Funciona no simulador</span></td></tr>
+          <tr><td>Alertas com LEDs e buzzer</td><td><span class="chip ok">Funciona no simulador</span></td></tr>
+          <tr><td>Envio dos dados por Wi-Fi ao servidor</td><td><span class="chip ok">Funciona no simulador</span></td></tr>
+          <tr><td>Painel web com gráficos e histórico</td><td><span class="chip wip">Em desenvolvimento</span></td></tr>
+          <tr><td>Modelo 3D da caixa do protótipo</td><td><span class="chip ok">Pronto para explorar</span></td></tr>
+          <tr><td>Impressão 3D da caixa e montagem com sensores reais (MQ135 e microfone)</td><td><span class="chip next">Próximo passo</span></td></tr>
+          <tr><td>Testes em uma sala de aula de verdade</td><td><span class="chip next">Próximo passo</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 6. ÁREA DE DEMONSTRAÇÃO ======================= -->
+<section id="demo" class="demo" aria-labelledby="t-demo">
+  <div class="wrap demo-box">
+    <div class="preview reveal" id="preview">
+      <!-- Preenchido pelo JS: usa CONFIG.PREVIEW_IMAGE ou mostra o espaço reservado -->
+    </div>
+    <div class="reveal">
+      <span class="eyebrow" style="color:#9cc4f5">Demonstração</span>
+      <h2 id="t-demo">Explore o protótipo em 3D</h2>
+      <p class="lead">Veja como o aparelho ficaria na parede da sala. É um modelo interativo, que você abre direto no navegador, no computador ou no celular.</p>
+      <ul>
+        <li>Gire o modelo para ver todos os lados da caixa.</li>
+        <li>Aproxime e afaste para ver os detalhes.</li>
+        <li>Não precisa instalar nada.</li>
+      </ul>
+      <a class="btn btn-primary btn-lg" href="#" data-3d-link target="_blank" rel="noopener">Explorar o protótipo em 3D
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7"/><path d="M8 7h9v9"/></svg>
+      </a>
+      <p class="small">Abre em uma nova aba. Quando terminar, volte aqui para dar sua opinião.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ======================= 7. PESQUISA DE OPINIÃO ======================= -->
+<section id="pesquisa" aria-labelledby="t-pesquisa">
+  <div class="wrap">
+    <div class="survey-box reveal">
+      <span class="eyebrow">Sua opinião</span>
+      <h2 id="t-pesquisa">Ajude a melhorar o SIMAEP</h2>
+      <p class="lead">Queremos saber se o projeto parece útil para você e o que podemos melhorar. São poucas perguntas e leva cerca de 3 minutos. Sua resposta vai orientar os próximos passos do trabalho.</p>
+      <a class="btn btn-primary btn-lg" href="#pesquisa" data-forms-link id="forms-main" target="_blank" rel="noopener">Responder a pesquisa</a>
+      <p class="soon" id="forms-soon" hidden>O formulário será publicado aqui em breve.</p>
+
+      <details class="embed" id="embed" hidden>
+        <summary>Prefiro responder aqui na página</summary>
+        <p class="note">Se o formulário não carregar bem no seu celular, use o botão acima.</p>
+        <div id="embed-slot"></div>
+      </details>
+    </div>
+  </div>
+</section>
+</main>
+
+<!-- ======================= 8. RODAPÉ ======================= -->
+<footer>
+  <div class="wrap">
+    <div class="cols">
+      <div>
+        <h2>Equipe</h2>
+        <!-- EDITE: nomes da equipe -->
+        <ul>
+          <li>Felipe Domingos Ramos</li>
+          <li>Matheus Ribeiro</li>
+          <li>Alexia Balhesteros</li>
+          <li>Maria Sofia</li>
+        </ul>
+      </div>
+      <div>
+        <h2>Instituição e orientação</h2>
+        <!-- EDITE: instituição, curso e orientador -->
+        <ul>
+          <li>Estácio Ribeirão Preto</li>
+          <li>Ciência da Computação</li>
+          <li>Orientador: Prof. Omar Donaires</li>
+        </ul>
+      </div>
+      <div id="contact" hidden>
+        <h2>Contato</h2>
+        <p><a id="contact-link" href="#"></a></p>
+      </div>
+    </div>
+    <p class="fine">SIMAEP é um projeto acadêmico em desenvolvimento. As informações desta página descrevem o protótipo atual e os próximos passos planejados.</p>
+  </div>
+</footer>
+
+<noscript>
+  <div style="padding:16px;background:#fdf0d5;color:#3a2800;text-align:center">
+    Para os botões de demonstração e pesquisa funcionarem, ative o JavaScript no navegador.
+  </div>
+</noscript>
+
+<script>
+(function () {
+  var C = CONFIG;
+
+  // --- Link do modelo 3D (nova aba) ---
+  document.querySelectorAll('[data-3d-link]').forEach(function (a) { a.href = C.MODEL_3D_URL; });
+
+  // --- Link do Forms ---
+  var hasForms = !!(C.FORMS_URL && C.FORMS_URL.trim());
+  document.querySelectorAll('[data-forms-link]').forEach(function (a) {
+    if (a.id === 'forms-main') {
+      if (hasForms) {
+        a.href = C.FORMS_URL;
+      } else {
+        a.removeAttribute('href');
+        a.removeAttribute('target');
+        a.setAttribute('aria-disabled', 'true');
+        a.setAttribute('role', 'link');
+        document.getElementById('forms-soon').hidden = false;
+      }
+    }
+    // O botão do topo apenas rola até a seção de pesquisa (href="#pesquisa").
+  });
+
+  // --- Formulário embutido (opcional) ---
+  if (hasForms && C.EMBED_FORM) {
+    var details = document.getElementById('embed');
+    details.hidden = false;
+    var loaded = false;
+    details.addEventListener('toggle', function () {
+      if (details.open && !loaded) {
+        loaded = true;
+        var sep = C.FORMS_URL.indexOf('?') === -1 ? '?' : '&';
+        var f = document.createElement('iframe');
+        f.src = C.FORMS_URL + sep + 'embedded=true';
+        f.title = 'Formulário de pesquisa de opinião sobre o SIMAEP';
+        f.loading = 'lazy';
+        document.getElementById('embed-slot').appendChild(f);
+      }
+    });
+  }
+
+  // --- Prévia do 3D: imagem ou espaço reservado ---
+  var prev = document.getElementById('preview');
+  if (C.PREVIEW_IMAGE) {
+    var img = document.createElement('img');
+    img.src = C.PREVIEW_IMAGE;
+    img.alt = C.PREVIEW_ALT;
+    img.loading = 'lazy';
+    prev.appendChild(img);
+  } else {
+    prev.innerHTML =
+      '<div class="placeholder" role="img" aria-label="Espaço reservado para um print do modelo 3D do protótipo">' +
+      '<div><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' +
+      '<path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>' +
+      '<path d="M3.3 7L12 12l8.7-5"/><path d="M12 22V12"/></svg>' +
+      'Espaço para o print do modelo 3D</div></div>';
+  }
+
+  // --- Contato ---
+  if (C.CONTACT_EMAIL && C.CONTACT_EMAIL.trim()) {
+    var l = document.getElementById('contact-link');
+    l.href = 'mailto:' + C.CONTACT_EMAIL;
+    l.textContent = C.CONTACT_EMAIL;
+    document.getElementById('contact').hidden = false;
+  }
+
+  // --- Animações discretas ao rolar ---
+  var items = document.querySelectorAll('.reveal');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  if (!('IntersectionObserver' in window) || reduce) {
+    items.forEach(function (el) { el.classList.add('in'); });
+  } else {
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    items.forEach(function (el) { io.observe(el); });
+  }
+})();
+</script>
+</body>
+</html>
