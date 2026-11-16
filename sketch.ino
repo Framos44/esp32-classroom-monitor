@@ -1,4 +1,5 @@
 // Bibliotecas necessarias
+#include <Arduino.h>
 #include <DHT.h>              // Biblioteca do sensor de temperatura/umidade DHT22
 #include <Wire.h>             // Biblioteca de comunicação I2C (usada pelo LCD)
 #include <LiquidCrystal_I2C.h> // Biblioteca do display LCD via I2C
@@ -19,15 +20,69 @@ const char* serverURL = "https://microcontrolador.papaixinho.com.br/api/dados.ph
 #define SOMPIN 32       // Pino analógico do potenciômetro (simula sensor de som)
 #define BUZZERPIN 25    // Pino digital do buzzer passivo (alarme sonoro)
 #define frequencia 2000 // Frequência (Hz) do som emitido pelo buzzer
-#define LEDGPIN 12      // Pino digitais do LED Verde
-#define LEDYPIN 13      // Pino digitais do LED Amarelo
-#define LEDRPIN 14      // Pino digitais do LED Vermelho
+#define LEDGPIN 12      // Pino digital do LED Verde
+#define LEDYPIN 13      // Pino digital do LED Amarelo
+#define LEDRPIN 14      // Pino digital do LED Vermelho
+#define BTN_POWER 27    // Pino digital do botão liga/desliga (INPUT_PULLUP: LOW = apertado)
+#define BTN_MUTE 33     // Pino digital do botão que silencia o buzzer (INPUT_PULLUP: LOW = apertado)
 
 // Objetos globais dos componentes
 DHT dht(DHTPIN, DHTTYPE);            // Sensor DHT22
 LiquidCrystal_I2C lcd(0x27, 20, 4);  // LCD 20x4 no endereço I2C 0x27
 
-int contadorExtremo = 0; // contator de leituras extremas seguidas
+int contadorExtremo = 0;        // Contador de leituras extremas seguidas (zera se alguma leitura normalizar)
+bool sistemaLigado = true;      // false = sistema "desligado": loop() para logo no início, sem ler sensores nem enviar dados
+bool buzzerSilenciado = false;  // true = buzzer nunca toca, mesmo com leitura crítica (mute)
+bool estadoAnteriorPower = HIGH; // Guarda a última leitura do botão POWER, usada para detectar a transição HIGH->LOW (clique)
+bool estadoAnteriorMute = HIGH;  // Guarda a última leitura do botão MUTE, usada para detectar a transição HIGH->LOW (clique)
+
+// Detecta cliques nos botões POWER e MUTE (transição de solto para apertado) e
+// aplica o efeito imediatamente (LEDs/buzzer/LCD), sem esperar o próximo ciclo
+// de medição. Chamada tanto no início do loop() quanto repetidamente durante
+// a espera entre ciclos, para não perder cliques rápidos.
+void verificarBotoes(){
+  bool leituraPower = digitalRead(BTN_POWER);
+  if (leituraPower != estadoAnteriorPower && leituraPower == LOW) {
+    sistemaLigado = !sistemaLigado; // inverte: true vira false, false vira true
+
+    if (sistemaLigado) {
+      Serial.println("Sistema LIGADO");
+      lcd.display(); // reativa a exibição do LCD, desligada ao apagar o sistema
+    } else {
+      Serial.println("Sistema DESLIGADO");
+      // Apaga tudo na hora, sem esperar o próximo ciclo de 5s
+      digitalWrite(LEDRPIN, LOW);
+      digitalWrite(LEDYPIN, LOW);
+      digitalWrite(LEDGPIN, LOW);
+      noTone(BUZZERPIN);
+      lcd.noDisplay();
+    }
+  }
+  estadoAnteriorPower = leituraPower;
+
+  bool leituraMute = digitalRead(BTN_MUTE);
+  if (leituraMute != estadoAnteriorMute && leituraMute == LOW) {
+    buzzerSilenciado = !buzzerSilenciado; // inverte: true vira false, false vira true
+
+    if (buzzerSilenciado) {
+      Serial.println("Som DESLIGADO");
+    } else {
+      Serial.println("Som LIGADO");
+    }
+  }
+  estadoAnteriorMute = leituraMute;
+}
+
+// Liga ou desliga o buzzer de acordo com o contador de leituras extremas e o mute.
+// Separada em função própria para poder ser chamada também durante a espera
+// entre ciclos, e assim reagir ao mute quase instantaneamente.
+void atualizarBuzzer() {
+  if (contadorExtremo >= 3 && !buzzerSilenciado) {
+    tone(BUZZERPIN, frequencia);
+  } else {
+    noTone(BUZZERPIN);
+  }
+}
 
 // Inicialização do prototipo
 void setup() {
@@ -48,6 +103,10 @@ void setup() {
   pinMode(LEDYPIN, OUTPUT);
   pinMode(LEDRPIN, OUTPUT);
 
+  // Botões com resistor de pull-up interno: pino HIGH quando solto, LOW quando apertado
+  pinMode(BTN_POWER, INPUT_PULLUP);
+  pinMode(BTN_MUTE, INPUT_PULLUP);
+
   // Aguarda a conexão Wi-Fi ser estabelecida antes de seguir
   // Se não conseguir conectar em até 10 tentativas o sistema seguira sem conexão
   int tentativas = 0;
@@ -58,6 +117,14 @@ void setup() {
 }
 
 void loop() {
+  verificarBotoes();
+
+  // Sistema desligado pelo botão POWER: não lê sensores, não calcula nada,
+  // não envia dados. Volta pro início do loop() imediatamente.
+  if (!sistemaLigado) {
+    return;
+  }
+
   // --- Leitura dos sensores ---
   float umidade = dht.readHumidity();
   float temperatura = dht.readTemperature();
@@ -71,6 +138,7 @@ void loop() {
   }
 
   // --- Classificação da temperatura em faixas de estado ---
+  // Faixa "amena" baseada em referências de conforto térmico (NR-17 / ISO 9241)
   if (temperatura <= 0) {
     tempTexto = "Temperatura Negativa";
   } else if (temperatura <= 15) {
@@ -86,6 +154,7 @@ void loop() {
   }
 
   // --- Classificação da umidade em faixas de estado ---
+  // Faixas baseadas em referência de conforto/saúde humana (ideal: 40-70%)
   if (umidade <= 12) {
     umiTexto = "Emergência";
   } else if (umidade > 12 && umidade <= 20) {
@@ -93,7 +162,7 @@ void loop() {
   } else if (umidade > 20 && umidade <= 30) {
     umiTexto = "Atenção";
   } else if (umidade > 30 && umidade < 40) {
-    umiTexto = "Atenção II";
+    umiTexto = "Atenção II"; // faixa intermediária (30-40%), sem categoria própria na fonte consultada
   } else if (umidade >= 40 && umidade <= 70) {
     umiTexto = "Ideal";
   } else {
@@ -136,7 +205,8 @@ void loop() {
     nivelSomTexto = "Alto";
   }
 
-  // Definindo o nivel do LED
+  // --- Convertendo cada estado textual em nível numérico: 0=normal, 1=atenção, 2=crítico ---
+  // Usado tanto pelos LEDs (pior nível manda) quanto pelo buzzer (ver alertaAtivo abaixo)
   int nivelTemp = 0, nivelUmi = 0, nivelLumi = 0, nivelAr = 0, nivelS = 0;
 
   if (tempTexto == "Temperatura Extremo" || tempTexto == "Temperatura Negativa") {
@@ -183,7 +253,7 @@ void loop() {
   // sempre reflita a condição ambiental mais grave no momento.
   int maiorNivel = max(nivelTemp, max(nivelUmi, max(nivelLumi, max(nivelAr, nivelS))));
 
-  // Acendendo os LEDs
+  // Acendendo os LEDs: só um fica aceso por vez, conforme o pior nível
   if (maiorNivel == 2){
     digitalWrite(LEDRPIN, HIGH);
     digitalWrite(LEDYPIN, LOW);
@@ -209,7 +279,8 @@ void loop() {
                 (luzTexto == "Muito claro") || (luzTexto == "Escuro") ||
                 (qualidadeArTexto == "Extremo") || (nivelSomTexto == "Alto");
 
-  // Contabilizador de quantas vezes algums dados ficou como "Extremo"
+  // Contador de leituras extremas seguidas: soma 1 a cada leitura crítica,
+  // zera assim que uma leitura normaliza (precisa ser consecutivo)
   if (alertaAtivo) {
     contadorExtremo++;
   } else {
@@ -217,12 +288,8 @@ void loop() {
   }
 
   // Soa o alarme: só liga após 3 leituras extremas seguidas (evita disparo por 1 leitura isolada/ruído);
-  // desliga automaticamente assim que uma leitura normaliza (contador zera)
-  if (contadorExtremo >= 3) {
-    tone(BUZZERPIN, frequencia);
-  } else {
-    noTone(BUZZERPIN);
-  }
+  // desliga automaticamente assim que uma leitura normaliza (contador zera), e nunca toca se estiver mudo
+  atualizarBuzzer();
 
   // --- Debug via serial ---
   Serial.print("Umidade: ");
@@ -268,7 +335,7 @@ void loop() {
     if (nivelAr == maiorNivel) sensoresProblema += "Ar";
     if (nivelS == maiorNivel) sensoresProblema += "Som";
   } else {
-    sensoresProblema += ":)";
+    sensoresProblema += ":)"; // tudo normal
   }
 
   lcd.setCursor(0, 3);
@@ -306,5 +373,15 @@ void loop() {
 
   http.end();
 
-  delay(5000); // Intervalo entre ciclos de leitura/envio
+  // Substitui o antigo delay(5000) único: espera o mesmo intervalo entre
+  // ciclos, mas em pedaços pequenos, checando os botões (e o buzzer) a cada
+  // repetição. Assim um clique não fica "preso" esperando o ciclo inteiro
+  // passar para ser detectado.
+  for (int i = 0; i < 250; i++){
+    verificarBotoes();
+    atualizarBuzzer();
+    delay(10);
+  }
+
+  // delay(5000); // Intervalo entre ciclos de leitura/envio (versão antiga, sem checar botões)
 }
