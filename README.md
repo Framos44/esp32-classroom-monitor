@@ -25,7 +25,6 @@ Protótipo desenvolvido e testado no [Wokwi](https://wokwi.com/).
 
 Notas:
 
-* O DHT22 não usa resistor de pull-up na linha de dados.
 * Os botões usam o pull-up interno do ESP32 (`INPUT_PULLUP`): pino em HIGH quando soltos, LOW quando apertados — não precisam de resistor externo.
 * Diagrama de montagem completo: `diagram.json` (simulação Wokwi) e `Diagrama.png`.
 
