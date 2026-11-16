@@ -21,7 +21,7 @@ Lista de hardware utilizado no protótipo, simulado no Wokwi (`diagram.json`).
 
 ## Observações
 
-* O resistor de pull-up do DHT22 deve ligar a linha DATA ao VCC. Ligar as duas pernas do resistor na linha DATA causa erros de leitura.
+* O DHT22 não usa resistor de pull-up na linha de dados.
 * Apenas um dos três LEDs (verde, amarelo ou vermelho) fica aceso por vez, conforme o maior nível de alerta entre os sensores monitorados.
 * O display LCD usa comunicação I2C, reduzindo o número de pinos necessários.
 * Todos os componentes estão descritos com suas posições e conexões completas em `diagram.json`, o arquivo de simulação do Wokwi.

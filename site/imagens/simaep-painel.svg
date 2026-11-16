@@ -1,0 +1,61 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 490 338" role="img" aria-labelledby="t d">
+  <title id="t">Painel frontal do protótipo SIMAEP</title>
+  <desc id="d">Display mostrando temperatura 24,0 °C, umidade 58%, ar bom, som baixo e luz adequada. À direita, três LEDs de alerta e um alto-falante. Abaixo, os botões Power e Mute e o nome SIMAEP.</desc>
+  <defs>
+    <filter id="sombra" x="-10%" y="-10%" width="120%" height="125%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000" flood-opacity=".35"/>
+    </filter>
+    <linearGradient id="lcd" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#abcf80"/>
+      <stop offset="1" stop-color="#9ec275"/>
+    </linearGradient>
+    <pattern id="grade" width="4" height="4" patternUnits="userSpaceOnUse">
+      <rect width="4" height="4" fill="none"/>
+      <path d="M0 4H4" stroke="#7da35a" stroke-opacity=".18" stroke-width=".6"/>
+    </pattern>
+  </defs>
+
+  <!-- Caixa -->
+  <rect x="33" y="31" width="414" height="274" rx="30" fill="#ffffff" filter="url(#sombra)"/>
+
+  <!-- Display LCD -->
+  <rect x="83" y="66" width="210" height="117" rx="3" fill="#7f8c99"/>
+  <rect x="98" y="82" width="180" height="90" fill="url(#lcd)"/>
+  <rect x="98" y="82" width="180" height="90" fill="url(#grade)"/>
+  <g font-family="'Courier New',Courier,ui-monospace,monospace" font-weight="700" font-size="12.8" fill="#1f2b1a" letter-spacing="1.1">
+    <text x="102" y="99">T:24.0C U:58.0%</text>
+    <text x="102" y="121">Ar:Bom Som:Baixo</text>
+    <text x="102" y="143">Luz:Adequado</text>
+    <text x="102" y="165">ST::)</text>
+  </g>
+
+  <!-- LEDs de alerta -->
+  <g stroke="#7f8c99" stroke-width="3">
+    <circle cx="374" cy="92" r="10" fill="#a8ece6"/>
+    <circle cx="374" cy="120" r="10" fill="#ffee00"/>
+    <circle cx="374" cy="150" r="10" fill="#f59a96"/>
+  </g>
+  <text x="374" y="175" text-anchor="middle" font-family="'Courier New',Courier,ui-monospace,monospace" font-weight="700" font-size="6.5" fill="#2b3a4a" letter-spacing=".6">ALERTA</text>
+
+  <!-- Alto-falante -->
+  <g fill="#8c98a5">
+    <circle cx="374" cy="203" r="1.3"/><circle cx="369" cy="206" r="1.3"/><circle cx="379" cy="206" r="1.3"/>
+    <circle cx="364" cy="210" r="1.3"/><circle cx="374" cy="210" r="1.3"/><circle cx="384" cy="210" r="1.3"/>
+    <circle cx="364" cy="216" r="1.3"/><circle cx="374" cy="216" r="1.3"/><circle cx="384" cy="216" r="1.3"/>
+    <circle cx="369" cy="220" r="1.3"/><circle cx="379" cy="220" r="1.3"/>
+    <circle cx="374" cy="223" r="1.3"/>
+  </g>
+
+  <!-- Botões -->
+  <g stroke="#7f8c99" stroke-width="4">
+    <circle cx="133" cy="240" r="17" fill="#5b6168"/>
+    <circle cx="242" cy="240" r="17" fill="#a9b0b8"/>
+  </g>
+  <g font-family="'Courier New',Courier,ui-monospace,monospace" font-weight="700" font-size="6.5" fill="#2b3a4a" text-anchor="middle" letter-spacing=".6">
+    <text x="133" y="272">POWER</text>
+    <text x="242" y="272">MUTE</text>
+  </g>
+
+  <!-- Nome -->
+  <text x="293" y="275" font-family="'Courier New',Courier,ui-monospace,monospace" font-weight="700" font-size="30" fill="#26343f" letter-spacing="1">SIMAEP</text>
+</svg>

@@ -95,7 +95,7 @@
       "top": 427.2,
       "left": -77.35,
       "rotate": 90,
-      "attrs": { "value": "220000" }
+      "attrs": { "value": "220" }
     },
     {
       "type": "wokwi-resistor",
@@ -103,7 +103,7 @@
       "top": 427.2,
       "left": -48.55,
       "rotate": 90,
-      "attrs": { "value": "220000" }
+      "attrs": { "value": "220" }
     },
     {
       "type": "wokwi-resistor",
@@ -111,7 +111,7 @@
       "top": 427.2,
       "left": -19.75,
       "rotate": 90,
-      "attrs": { "value": "220000" }
+      "attrs": { "value": "220" }
     },
     {
       "type": "wokwi-pushbutton",
